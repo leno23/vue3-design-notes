@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Document</title>
+    </head>
+
+    <body>
+        <script>
+            // 3.分支切换与cleanup
+            const data = { ok: true, text: "hello world" };
+            let activeEffect;
+            // 在当前副作用函数的依赖项中删掉自己，并将依赖项置空
+            function cleanup(effectFn) {
+                for (let deps of effectFn.deps) {
+                    deps.delete(effectFn);
+                }
+                effectFn.deps.length = 0;
+            }
+            const effect = function (fn) {
+                const effectFn = () => {
+                    cleanup(effectFn);
+                    activeEffect = effectFn;
+                    fn();
+                };
+                // 用于存储所有与该副作用函数相关的依赖
+                effectFn.deps = [];
+                effectFn();
+            };
+            const bucket = new WeakMap();
+            const track = (target, key) => {
+                if (!activeEffect) return;
+                let depsMap = bucket.get(target);
+                if (!depsMap) {
+                    bucket.set(target, (depsMap = new Map()));
+                }
+                let deps = depsMap.get(key);
+                if (!deps) {
+                    depsMap.set(key, (deps = new Set()));
+                }
+                activeEffect.deps.push(deps);
+                deps.add(activeEffect);
+            };
+            const trigger = (target, key) => {
+                let depsMap = bucket.get(target);
+                if (!depsMap) return;
+                let deps = depsMap.get(key);
+                const effectsToRun = new Set(deps);
+                effectsToRun.forEach((effectFn) => effectFn());
+                // console.log(deps);
+                // deps && deps.forEach((fn) => fn());  // 这里会导致无限循环
+                // deps.forEach(fn => {
+                    // fn()  ->  
+                    // effectFn() ->
+                        // cleanup()=>deps.delete(fn)
+                        // fn() -> effect() -> track -> 
+                        // deps.add(effectFn) -> deps.add(fn)
+                // })
+                // 相当于 
+                /*
+                    let s = new Set([1])
+                    s.forEach(it => {
+                        s.delete(1)
+                        s.add(1)
+                    })
+                    // 这个操作会导致循环无法结束
+                    修改方法 👇
+                    let s = new Set([1])
+                    let ss = new Set(s)
+                    ss.forEach(it => {
+                        s.delete(1)
+                        s.add(1)
+                    })
+                */
+            };
+            const obj = new Proxy(data, {
+                get(target, key) {
+                    track(target, key);
+                    return target[key];
+                },
+                set(target, key, newVal) {
+                    target[key] = newVal;
+                    trigger(target, key);
+                },
+            });
+            effect(function effectFn() {
+                console.log("effect");
+                document.body.innerText = obj.ok ? obj.text : "not";
+            });
+            setTimeout(() => {
+                console.log(bucket);
+                obj.ok = 0;
+                obj.text = "hello vue3";
+            }, 1000);
+            // effectFn存在分支语句，obj.ok的值会影响当前副作用函数
+            // 当此处将ok置为0后，不管text怎样变都不会影响
+            // document.body.innerText的值，但是此时副作用函数却执行了
+            // 因为ok设置为0后，target仍然存在对text的依赖
+            // 这个就导致了遗留的副作用函数
+        </script>
+    </body>
+</html>
