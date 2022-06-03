@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Document</title>
+    </head>
+
+    <body>
+        <script>
+            // 1. 副作用函数：产生副作用的函数
+            // 这里的副作用指：一个函数的执行会影响到其他的函数的执行结果
+            {
+                function effect() {
+                    document.body.innerText = "hello vue3";
+                }
+                function effected() {
+                    console.log(document.body.innerText);
+                }
+                effected(); // 第一次执行打印hello
+                effect();
+                effected(); // 副作用函数执行后，影响到了函数的输出
+            }
+
+            // 2.响应式数据
+            {
+                const obj = { text: "hello" };
+                function effect() {
+                    document.body.innerText = obj.text;
+                }
+                obj.text = "hello vue3";
+                //  当修改obj.text时，希望effect函数自动执行，这时obj就是响应式数据
+                //   也就是响应式数据发生变化时，依赖该数据的副作用函数会自动执行
+            }
+        </script>
+    </body>
+</html>
