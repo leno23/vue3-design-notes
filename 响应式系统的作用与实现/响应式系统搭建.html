@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document</title>
+</head>
+
+<body>
+  <script>
+    // 2.1 响应式系统实现
+    {
+      const bucket = new Set();
+      const data = { text: "hello" };
+      const obj = new Proxy(data, {
+        get(target, key) {
+          bucket.add(effect);
+          return target[key];
+        },
+        set(target, key, newVal) {
+          target[key] = newVal;
+          bucket.forEach((fn) => fn());
+          return true;
+        },
+      });
+      function effect() {
+        document.body.innerText = obj.text;
+      }
+      effect();
+      //  在一秒之后修改数据，页面会自动变化
+      // setTimeout(() => {
+      //   obj.text = 'hello vue3'
+      // },1000)
+    }
+    // 2.2设计完善的响应式系统
+    // 以上的方式我们只能注册名为effect名称的副作用函数，如何将自定义的副作用函数注册到桶中呢？
+    // 提供一个注册effect函数的方式
+    {
+      let activeEffect;
+      function effect(fn) {
+        activeEffect = fn;
+        fn();
+      }
+      const bucket = new Set();
+      const data = { text: "hello" };
+      const obj = new Proxy(data, {
+        get(target, key) {
+          if (activeEffect) {
+            bucket.add(activeEffect);
+          }
+          return target[key];
+        },
+        set(target, key, newVal) {
+          target[key] = newVal;
+          bucket.forEach((fn) => fn());
+          return true;
+        },
+      });
+      effect(() => {
+        // console.log('effect')
+        //  没有读取notExist的值
+        document.body.innerText = obj.text;
+      });
+      setTimeout(() => {
+        // 设置不存在的值时，同样触发了读取text的副作用函数
+        // obj.notExist = "123";
+        // obj.text = 'hello vue3-1'
+      }, 1500);
+    }
+    // 2.3 添加依赖和副作用函数的对应关系
+    {
+      const bucket = new WeakMap();
+      let activeEffect;
+      function effect(fn) {
+        activeEffect = fn;
+        fn();
+      }
+      const data = { text: "hello" };
+      const obj = new Proxy(data, {
+        get(target, key) {
+          if (!activeEffect) return;
+          let depsMap = bucket.get(target);
+          if (!depsMap) {
+            bucket.set(target, (depsMap = new Map()));
+          }
+          let deps = depsMap.get(key);
+          if (!deps) {
+            depsMap.set(key, (deps = new Set()));
+          }
+          deps.add(activeEffect);
+          console.log(bucket);
+          return target[key];
+        },
+        set(target, key, newVal) {
+          target[key] = newVal;
+          const depsMap = bucket.get(target);
+          if (!depsMap) return;
+          const effects = depsMap.get(key);
+          effects && effects.forEach((fn) => fn());
+        },
+      });
+      effect(() => {
+        // 最终只会执行一次
+        console.log("effect1");
+        document.body.innerText = obj.text;
+      });
+      setTimeout(() => {
+        // 设置一个不存在的属性时，不会触发副作用函数的执行
+        obj.notExist = "123";
+        console.log(bucket);
+        // obj.text = "hello vue3";
+      }, 1000);
+    }
+    
+    // 2.3 将收集副作用的过程和 执行副作用的过程 抽出track和trigger方法
+    {
+      const bucket = new WeakMap();
+      let activeEffect;
+      function effect(fn) {
+        activeEffect = fn;
+        fn();
+      }
+      function track(target, key) {
+        if (!activeEffect) return;
+        let depsMap = bucket.get(target);
+        if (!depsMap) {
+          bucket.set(target, (depsMap = new Map()));
+        }
+        let deps = depsMap.get(key);
+        if (!deps) {
+          depsMap.set(key, (deps = new Set()));
+        }
+        deps.add(activeEffect);
+        console.log(bucket);
+      }
+      function trigger(target, key) {
+        const depsMap = bucket.get(target);
+        if (!depsMap) return;
+        const effects = depsMap.get(key);
+        effects && effects.forEach((fn) => fn());
+      }
+      const data = { text: "hello" };
+      const obj = new Proxy(data, {
+        get(target, key) {
+          track(target, key);
+          return target[key];
+        },
+        set(target, key, newVal) {
+          target[key] = newVal;
+          trigger(target, key);
+        },
+      });
+      effect(() => {
+        // 最终只会执行一次
+        console.log("effect1");
+        document.body.innerText = obj.text;
+      });
+      setTimeout(() => {
+        // 设置一个不存在的属性时，不会触发副作用函数的执行
+        obj.notExist = "123";
+        console.log(bucket);
+        // obj.text = "hello vue3";
+      }, 1000);
+    }
+  </script>
+</body>
+
+</html>
