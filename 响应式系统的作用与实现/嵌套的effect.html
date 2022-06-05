@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document</title>
+</head>
+
+<body>
+  <script>
+    // 3.嵌套的effect
+    // 什么时候副作用函数会发生嵌套
+    //  当前有一个组件Foo
+    /*
+    const Bar = {
+      reder(){}
+    }
+    render函数中会读取状态，所以它是一个副作用函数
+    如果在Bar中渲染另外一个组件时，例如
+    const Bar = {
+      render(){
+        return <Foo />
+      }
+    }
+    此时，Bar的render函数对应的副作用函数中
+    // 就嵌套了Foo函数的render函数对应的副作用函数
+    */
+
+    const data = { foo: 1, bar: 1 };
+    let activeEffect;
+    const effectStack = [];
+    function cleanup(effectFn) {
+      for (let deps of effectFn.deps) {
+        deps.delete(effectFn);
+      }
+      effectFn.deps.length = 0;
+    }
+    const effect = function (fn) {
+      const effectFn = () => {
+        cleanup(effectFn);
+        activeEffect = effectFn;
+        effectStack.push(effectFn);
+        // obj.foo = obj.foo + 1
+        // 先触发track将effectFn放入bucket中，又触发trigger取出effectFn并执行
+        // 相当于 effectFn()  又执行了自身,导致栈溢出
+        fn();  
+        effectStack.pop(effectFn);
+        activeEffect = effectStack[effectStack.length - 1];
+      };
+      // 用于存储所有与该副作用函数相关的依赖
+      effectFn.deps = [];
+      effectFn();
+    };
+    const bucket = new WeakMap();
+    const track = (target, key) => {
+      if (!activeEffect) return;
+      let depsMap = bucket.get(target);
+      if (!depsMap) {
+        bucket.set(target, (depsMap = new Map()));
+      }
+      let deps = depsMap.get(key);
+      if (!deps) {
+        depsMap.set(key, (deps = new Set()));
+      }
+      activeEffect.deps.push(deps);
+      deps.add(activeEffect);
+    };
+    const trigger = (target, key) => {
+      let depsMap = bucket.get(target);
+      if (!depsMap) return;
+      let effects = depsMap.get(key);
+      const effectsToRun = new Set();
+      effects && effects.forEach((effectFn) => {
+        // 依赖修改triger的副作用和当前执行的副作用相等的话，不添加
+        if (effectFn !== activeEffect) {
+          effectsToRun.add(effectFn)
+        };
+      });
+      effectsToRun.forEach((effectFn) => effectFn());
+    };
+    const obj = new Proxy(data, {
+      get(target, key) {
+        track(target, key);
+        return target[key];
+      },
+      set(target, key, newVal) {
+        target[key] = newVal;
+        trigger(target, key);
+      },
+    });
+    let temp1, temp2;
+    // effect((function effect1() {
+    //   console.log("effect1");
+    //   effect(function effect2() {
+    //     console.log("effect2");
+    //     temp2 = obj.bar;
+    //   });
+    //   temp1 = obj.foo;
+    // }));
+    setTimeout(() => {
+      // 修改foo的值之后，执行了effect2，而预期是执行它对应的副作用函数effect1
+      // 原因是因为第二次执行effect函数是，activeEffect被覆盖为内部的副作用函数了
+      // 为了使每次执行更新依赖项时，activeEffect指向正确的副作用函数
+      // 引入栈结构
+      // obj.foo++;
+    }, 1000);
+
+    // 3.1 避免无限递归
+    // 如果effect内部有一个自增的操作
+    effect(() => {
+      obj.foo++ // 这行会导致栈溢出
+    })
+  </script>
+</body>
+
+</html>
