@@ -10,67 +10,144 @@
 
 <body>
   <script>
-    // 2.1 响应式系统实现
+    
+    // 2.0什么是响应式
     {
-      const bucket = new Set();
-      const data = { text: "hello" };
-      const obj = new Proxy(data, {
-        get(target, key) {
-          bucket.add(effect);
-          return target[key];
-        },
-        set(target, key, newVal) {
-          target[key] = newVal;
-          bucket.forEach((fn) => fn());
-          return true;
-        },
-      });
+      // 假如，现在有一个全局对象obj，和一个引用了这个对象值的副作用函数
+      let obj = { foo: 1 }
       function effect() {
-        document.body.innerText = obj.text;
+        alert(obj.foo)
       }
-      effect();
-      //  在一秒之后修改数据，页面会自动变化
-      // setTimeout(() => {
-      //   obj.text = 'hello vue3'
-      // },1000)
+      // 我们执行副作用函数会得到期望的效果，弹窗显示1
+      effect()
+      // 但是由于obj是全局对象，我们不确定它在哪些地方修改过
+      // 为了保证effect的执行效果总是正确的，我们需要在每次obj.foo改变时
+      // 手动调用effect函数，例如
+      obj.foo = 2
+      effect() // 这无疑增加了很多重复的工作
+
+      // 那么，如果obj是响应式数据，会是怎样的呢？
+      // 答案就是，foo发生改变时，依赖该对应的副作用函数会自动执行
     }
-    // 2.2设计完善的响应式系统
-    // 以上的方式我们只能注册名为effect名称的副作用函数，如何将自定义的副作用函数注册到桶中呢？
-    // 提供一个注册effect函数的方式
+    
+    // 2.1 使用Proxy实现响应式
     {
-      let activeEffect;
-      function effect(fn) {
-        activeEffect = fn;
-        fn();
+
+      // 想要实现这一点，就需要我们可以监听对象的属性访问和修改操作
+      // 这里就需要用到ES6的Proxy对象
+      // 当传入一个对象给Proxy时，它允许我们注册一组访问器属性getter,setter，
+      // 并且返回代理后的对象obj，当访问和修改obj的属性时，Proxy会调用我们注册
+      // 的getter3,setter函数
+
+      // 那么利用Proxy我们就可以将上述的obj修改为响应式对象
+      let obj = { foo: 1, bar: 2 }
+      let p = new Proxy(obj, {
+        get(target, key) {
+          return target[key]
+        },
+        set(target, key, newval) {
+          target[key] = newVal
+          // 属性修改时自动执行副作用函数
+          effect()
+        }
+      })
+      function effect() {
+        alert(obj.foo)
       }
-      const bucket = new Set();
-      const data = { text: "hello" };
-      const obj = new Proxy(data, {
+      obj.foo = 2  // 修改obj.foo时，副作用函数会自动执行
+
+    }
+    
+    // 2.2 多个副作用函数的处理
+    {
+
+      // 但是，副作用函数可能不止一个，如下
+      function effect1() {
+        alert(obj.foo)
+      }
+      function effect2() {
+        alert(obj.bar)
+      }
+      // 由于上面的响应式在实现时，将副作用函数写死为effect，
+      // 如果存在多个副作用函数，我们还需要在setter中逐个调用，
+      // 这显然是不实际的，因为我们根本不知道将来的出现的副作用函数的名称。
+
+      // 这时，我们可以想象出来一个桶bucket，
+      // 首先，将副作用函数都放到桶中。然后，在setter中执行桶中的所有函数。
+      // 那么，我们就需要有一个将副作用函数放入桶中的操作，也就是注册副作用函数的操作。
+      // 按照上面的思想，我们修改一下代码
+      const bucket = new Set()
+      let activeEffect // 暴露出当前正在运行的副作用函数
+      const effect = fn => {
+        activeEffect = fn
+        // 先执行effect，便于收集当前副作用函数依赖的数据
+        fn()
+      }
+      let obj = { foo: 1, bar: 2 }
+      let p = new Proxy(obj, {
         get(target, key) {
           if (activeEffect) {
-            bucket.add(activeEffect);
+            bucket.add(activeEffect)
           }
-          return target[key];
+          return target[key]
         },
         set(target, key, newVal) {
-          target[key] = newVal;
-          bucket.forEach((fn) => fn());
-          return true;
-        },
-      });
-      effect(() => {
-        // console.log('effect')
-        //  没有读取notExist的值
-        document.body.innerText = obj.text;
-      });
-      setTimeout(() => {
-        // 设置不存在的值时，同样触发了读取text的副作用函数
-        // obj.notExist = "123";
-        // obj.text = 'hello vue3-1'
-      }, 1500);
+          target[key] = newVal
+          // 属性修改时自动执行副作用函数
+          effect()
+        }
+      })
+      // 注册副作用函数
+      effect(effect1)
+      effect(effect2)
+
+      p.foo = 4 // 修改p.foo，会自动执行副作用函数
+      // 然后，我们会立即发现一个问题，就是我们修改p.foo时，effect2
+      // 也会执行，这个也是不符合预期的，我们希望 修改属性时，只有依赖这些属性
+      // 的副作用函数会执行.
+      // 这样的话，我们就需要重新设计我们bucket了。首先，我们需要将副作用函数
+      // 和依赖的key关联上,也就是需要一个Map和Set，如下
+      {
+        let depsMap = new Map()
+        let effects = new Set()
+        depsMap.set(key, effects)
+      }
+      // 当前的depsMap代表的就是 对象obj中每个key与副作用函数集合的关系了。
+      // 由于实际中，被依赖的对象肯定不止一个，所以我们还需要一个管理每个对象
+      // 与其depsMap的关系的结构。
+      // 这里就是用到了WeakMap,最终的结构如下
+      {
+        let obj = { foo: 1 }
+        const effect = () => {
+          alert(obj.foo)
+        }
+        let buckets = new WeakMap([
+          [
+            obj, new Map([
+              ['foo', new Set([effect]) ]
+            ])
+          ]
+        ])
+      }
+      // tips:WeakMap和Map的区别
+      {
+        const map = new Map()
+        const weakmap = new WeakMap();
+        (() =>{
+          let foo = {foo:1}
+          let bar = {bar:1}
+          map.set(foo,1)
+          weakmap.set(bar,1)
+        })()
+        console.log(map,weakmap)  // weakmap的key为空
+
+      }
+
     }
-    // 2.3 添加依赖和副作用函数的对应关系
+    
+    // 2.3添加依赖和副作用函数的对应关系
     {
+      // 然后，基于weakmap将上述代码重新进行修改
       const bucket = new WeakMap();
       let activeEffect;
       function effect(fn) {
@@ -103,18 +180,13 @@
       });
       effect(() => {
         // 最终只会执行一次
-        console.log("effect1");
-        document.body.innerText = obj.text;
+        alert(obj.text)
       });
-      setTimeout(() => {
-        // 设置一个不存在的属性时，不会触发副作用函数的执行
-        obj.notExist = "123";
-        console.log(bucket);
-        // obj.text = "hello vue3";
-      }, 1000);
+      // 修改一个不存在的属性时，不出发副作用函数的执行
+      obj.notExist = '222'
     }
-    
-    // 2.3 将收集副作用的过程和 执行副作用的过程 抽出track和trigger方法
+
+    // 2.4 将收集副作用的过程和 执行副作用的过程 抽出track和trigger方法
     {
       const bucket = new WeakMap();
       let activeEffect;
@@ -160,7 +232,6 @@
       setTimeout(() => {
         // 设置一个不存在的属性时，不会触发副作用函数的执行
         obj.notExist = "123";
-        console.log(bucket);
         // obj.text = "hello vue3";
       }, 1000);
     }
