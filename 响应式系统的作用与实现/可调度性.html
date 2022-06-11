@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script>
+    // 可调度性：当trigger动作出发副作用函数重新执行时，
+    // 有能力决定副作用函数执行的时机、次数以及方式
+    let data = {foo:1}
+    const buckets = new WeakMap()
+    const track = (target,key) => {
+      if(!activeEffect) return
+      let depsMap = buckets.get(target)
+      if(!depsMap){
+        buckets.set(target,(depsMap = new Map()))
+      }
+      let deps = depsMap.get(key)
+      if(!deps){
+        depsMap.set(key,(deps = new Set()))
+      }
+      deps.add(activeEffect)
+      activeEffect.deps.push(deps)
+    }
+    const trigger = (target,key) => {
+      let depsMap = buckets.get(target)
+      if(!depsMap) return
+      let deps = depsMap.get(key)
+      if(!deps) return
+      let effectsToRun = new Set()
+      deps.forEach(effectFn => {
+        if(activeEffect !==effectFn){
+          effectsToRun.add(effectFn)
+        }
+      })
+      effectsToRun.forEach(fn=>fn())
+    }
+    const obj = new Proxy(data, {
+      get(target,key){
+        track(target,key)
+        return target[key]
+      },
+      set(target,key,newVal){
+        target[key] = newVal
+        trigger(target,key)
+      }
+    })
+    let activeEffect,effectStask = []
+    const cleanup = effectFn => {
+      for(let effects of effectFn.deps){
+        effects.delete(effectFn)
+      }
+      effectFn.deps.length=0
+    }
+    
+    const effect = fn => {
+      const effectFn = () => {
+        cleanup(effectFn)
+        activeEffect = effectFn
+        effectStask.push(effectFn)
+        fn()
+        effectStask.pop()
+        activeEffect = effectStask[effectStask.length-1]
+      }
+      effect.options = options
+      effectFn.deps = []
+      effectFn()
+    }
+    {
+      effect(() => {
+        console.log(obj.foo);
+      })
+      obj.foo++
+      console.log('到此一游')
+    }
+    // 执行上面的代码输出为
+    // 1
+    // 2
+    // 到此一游
+    // 说明我们的副作用effect函数时同步执行的，
+    // 如果这里需要让副作用函数异步执行，需要如何做呢？
+    // 为effect函数增加一个option参数
+    {
+      effect(() => {
+        console.log(obj.foo);
+      },{
+        scheduler(fn){
+
+        }
+      })
+      obj.foo++
+      console.log('到此一游')
+    }
+  </script>
+</body>
+</html>
