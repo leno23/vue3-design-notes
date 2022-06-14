@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <script>
+    // computed计算属性的实现，与lazy选项
+    let data = { foo: 1 }
+    const buckets = new WeakMap()
+    const track = (target, key) => {
+      if (!activeEffect) return
+      let depsMap = buckets.get(target)
+      if (!depsMap) {
+        buckets.set(target, (depsMap = new Map()))
+      }
+      let deps = depsMap.get(key)
+      if (!deps) {
+        depsMap.set(key, (deps = new Set()))
+      }
+      deps.add(activeEffect)
+      activeEffect.deps.push(deps)
+    }
+    const trigger = (target, key) => {
+      let depsMap = buckets.get(target)
+      if (!depsMap) return
+      let deps = depsMap.get(key)
+      if (!deps) return
+      let effectsToRun = new Set()
+      deps.forEach(effectFn => {
+        if (activeEffect !== effectFn) {
+          effectsToRun.add(effectFn)
+        }
+      })
+      effectsToRun.forEach(effectFn => {
+        if (effectFn.options.scheduler) {
+          effectFn.options.scheduler(effectFn)
+        } else {
+          effectFn()
+        }
+      })
+    }
+    const obj = new Proxy(data, {
+      get(target, key) {
+        track(target, key)
+        return target[key]
+      },
+      set(target, key, newVal) {
+        target[key] = newVal
+        trigger(target, key)
+      }
+    })
+    let activeEffect, effectStask = []
+    const cleanup = effectFn => {
+      for (let effects of effectFn.deps) {
+        effects.delete(effectFn)
+      }
+      effectFn.deps.length = 0
+    }
+
+    const effect = (fn, options = {}) => {
+      const effectFn = () => {
+        cleanup(effectFn)
+        activeEffect = effectFn
+        effectStask.push(effectFn)
+        let res = fn()
+        effectStask.pop()
+        activeEffect = effectStask[effectStask.length - 1]
+        // 返回res，便于在computed函数拿到结果
+        return res
+      }
+      effectFn.options = options
+      effectFn.deps = []
+      // 指定lazy为true时，不会立即执行副作用函数
+      if (!options.lazy) {
+        effectFn()
+      }
+    }
+    {
+      // step1 如下添加一个副作用函数之后，该函数会立即执行一次
+      // 在有些场景下，希望只有obj.foo改变之后才会执行
+      // 指定lazy选项会有这样的效果
+      effect(() => {
+        console.log(obj.foo)
+      }, {
+        lazy: true
+      })
+      obj.foo++
+
+      // 实现computed函数，允许传入一个getter函数，可以返回getter函数的值
+      // 而且在依赖发生改变时，会自动执行getter函数
+      function computed(getter) {
+        const effectFn = effect(getter, {
+          lazy: true
+        })
+        return {
+          // ES新增，访问value属性时，会自动执行getter函数
+          get value() {
+            return effectFn()
+          }
+        }
+      }
+      // 
+      const computedVal = computed(() => obj.foo * 2)
+
+    }
+  </script>
+</body>
+
+</html>
