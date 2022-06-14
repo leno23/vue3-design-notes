@@ -1,80 +1,89 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Document</title>
 </head>
+
 <body>
   <script>
     // 可调度性：当trigger动作出发副作用函数重新执行时，
     // 有能力决定副作用函数执行的时机、次数以及方式
-    let data = {foo:1}
+    let data = { foo: 1 }
     const buckets = new WeakMap()
-    const track = (target,key) => {
-      if(!activeEffect) return
+    const track = (target, key) => {
+      if (!activeEffect) return
       let depsMap = buckets.get(target)
-      if(!depsMap){
-        buckets.set(target,(depsMap = new Map()))
+      if (!depsMap) {
+        buckets.set(target, (depsMap = new Map()))
       }
       let deps = depsMap.get(key)
-      if(!deps){
-        depsMap.set(key,(deps = new Set()))
+      if (!deps) {
+        depsMap.set(key, (deps = new Set()))
       }
       deps.add(activeEffect)
       activeEffect.deps.push(deps)
     }
-    const trigger = (target,key) => {
+    const trigger = (target, key) => {
       let depsMap = buckets.get(target)
-      if(!depsMap) return
+      if (!depsMap) return
       let deps = depsMap.get(key)
-      if(!deps) return
+      if (!deps) return
       let effectsToRun = new Set()
       deps.forEach(effectFn => {
-        if(activeEffect !==effectFn){
+        if (activeEffect !== effectFn) {
           effectsToRun.add(effectFn)
         }
       })
-      effectsToRun.forEach(fn=>fn())
+      effectsToRun.forEach(effectFn => {
+        if (effectFn.options.scheduler) {
+          effectFn.options.scheduler(effectFn)
+        } else {
+          effectFn()
+        }
+      })
     }
     const obj = new Proxy(data, {
-      get(target,key){
-        track(target,key)
+      get(target, key) {
+        track(target, key)
         return target[key]
       },
-      set(target,key,newVal){
+      set(target, key, newVal) {
         target[key] = newVal
-        trigger(target,key)
+        trigger(target, key)
       }
     })
-    let activeEffect,effectStask = []
+    let activeEffect, effectStask = []
     const cleanup = effectFn => {
-      for(let effects of effectFn.deps){
+      for (let effects of effectFn.deps) {
         effects.delete(effectFn)
       }
-      effectFn.deps.length=0
+      effectFn.deps.length = 0
     }
-    
-    const effect = fn => {
+
+    const effect = (fn, options = {}) => {
       const effectFn = () => {
         cleanup(effectFn)
         activeEffect = effectFn
         effectStask.push(effectFn)
         fn()
         effectStask.pop()
-        activeEffect = effectStask[effectStask.length-1]
+        activeEffect = effectStask[effectStask.length - 1]
       }
-      effect.options = options
+      effectFn.options = options
       effectFn.deps = []
       effectFn()
     }
     {
-      effect(() => {
-        console.log(obj.foo);
-      })
-      obj.foo++
-      console.log('到此一游')
+      // step1 不指定调度器
+      // effect(() => {
+      //   console.log(obj.foo);
+      // })
+      // obj.foo++
+      // console.log('到此一游')
     }
     // 执行上面的代码输出为
     // 1
@@ -84,16 +93,59 @@
     // 如果这里需要让副作用函数异步执行，需要如何做呢？
     // 为effect函数增加一个option参数
     {
-      effect(() => {
-        console.log(obj.foo);
-      },{
-        scheduler(fn){
+      // step2 指定调度器
+      // effect(() => {
+      //   console.log(obj.foo);
+      // }, {
+      //   scheduler(fn) {
+      //     // 将副作用函数放到宏任务队列中进行执行
+      //     setTimeout(() => {
+      //       fn()
+      //     })
+      //   }
+      // })
+      // obj.foo++
+      // console.log('到此一游')
+      // 依次打印： 1 到此一游 2
+    }
+    {
 
+      // step3 只关心状态最后一次改变造成的执行结果
+      // effect(() => {
+      //   console.log(obj.foo);
+      // })
+      // obj.foo++
+      // obj.foo++
+      // 会打印出 1 2 3
+      // 但是我们只关心最后一次的状态改变的结果
+    }
+    {
+      const jobQueue = new Set()
+      const p = Promise.resolve()
+      let isFlushing = false
+      function flushJob() {
+        if (isFlushing) return
+        isFlushing = true
+        p.then(() => {
+          jobQueue.forEach(job => job())
+        }).finally(() => {
+          isFlushing = false
+        })
+      }
+      effect(() => {
+        console.log(obj.foo)
+      }, {
+        scheduler(fn) {
+          jobQueue.add(fn)
+          flushJob()
         }
       })
+      
       obj.foo++
-      console.log('到此一游')
+      obj.foo++
+      // 依次打印： 1  3 ，不会打印中间追赶提
     }
   </script>
 </body>
+
 </html>
