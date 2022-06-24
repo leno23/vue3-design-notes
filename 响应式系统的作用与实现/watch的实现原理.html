@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <script>
+    // watch的实现原理
+    {
+      // 关于如下使用watch的一个例子，obj是一个响应式数据
+      // watch(obj, () => {
+      //   console.log('数据变了')
+      // })
+      // 当响应式数据被修改时，回调会重新执行
+      // watch的实现本质上利用了effect和option.scheduler选项
+      // obj.foo++
+    }
+    let data = { foo: { count: 100 },bar:100 };
+    const buckets = new WeakMap();
+    const track = (target, key) => {
+      if (!activeEffect) return;
+      let depsMap = buckets.get(target);
+      if (!depsMap) {
+        buckets.set(target, (depsMap = new Map()));
+      }
+      let deps = depsMap.get(key);
+      if (!deps) {
+        depsMap.set(key, (deps = new Set()));
+      }
+      deps.add(activeEffect);
+      activeEffect.deps.push(deps);
+    };
+    const trigger = (target, key) => {
+      let depsMap = buckets.get(target);
+      if (!depsMap) return;
+      let deps = depsMap.get(key);
+      if (!deps) return;
+      let effectsToRun = new Set();
+      deps.forEach((effectFn) => {
+        if (activeEffect !== effectFn) {
+          effectsToRun.add(effectFn);
+        }
+      });
+      effectsToRun.forEach((effectFn) => {
+        if (effectFn.options.scheduler) {
+          effectFn.options.scheduler(effectFn);
+        } else {
+          effectFn();
+        }
+      });
+    };
+    const obj = new Proxy(data, {
+      get(target, key) {
+        track(target, key);
+        return target[key];
+      },
+      set(target, key, newVal) {
+        target[key] = newVal;
+        trigger(target, key);
+      },
+    });
+    let activeEffect, effectStask = [];
+    const cleanup = (effectFn) => {
+      for (let effects of effectFn.deps) {
+        effects.delete(effectFn);
+      }
+      effectFn.deps.length = 0;
+    };
+
+    const effect = (fn, options = {}) => {
+      const effectFn = () => {
+        cleanup(effectFn);
+        activeEffect = effectFn;
+        effectStask.push(effectFn);
+        let res = fn();
+        effectStask.pop();
+        activeEffect = effectStask[effectStask.length - 1];
+        // 返回res，便于在computed函数拿到结果
+        return res;
+      };
+      effectFn.options = options;
+      effectFn.deps = [];
+      // 指定lazy为true时，不会立即执行副作用函数
+      if (!options.lazy) {
+        effectFn();
+      }
+      return effectFn;
+    }
+
+    // watch第一版
+    function watch(source, cb) {
+      effect(() => {
+        return source.foo
+      }, {
+        scheduler() {
+          cb()
+        }
+      })
+    }
+    watch(obj, () => {
+      console.log('数据变了')
+    })
+    obj.bar++ // 101
+    // 现在这种情况，当obj.foo发生变化时，注册的回调会被执行
+    // 但是，注意到当前的watch实现中硬编码了读取的属性为foo，
+    // 需要改的更有一般性
+    // 定义一个递归读取value中所有属性的方法traverse
+    function traverse(value, seen = new Set()) {
+      // 对于原始类型和null不进行递归，如果访问过了，就不要继续，防止死循环
+      if (typeof value != 'object' || value === null || seen.has(value)) return
+      seen.add(value)
+      for (let k in value) traverse(value[k], seen)
+      return value
+    }
+    // watch第二版 支持监听任意属性
+    function watch2(source, cb) {
+      debugger
+      effect(() => traverse(source), {
+        scheduler() {
+          cb()
+        }
+      })
+    }
+    watch2(obj, () => {
+      console.log('watch2 obj变化了')
+    })
+    obj.foo.count++
+    // 回调不会被执行，因为foo还不是响应式对象
+    
+    // 另外，watch还可以传入一个getter函数，当只希望检测某个属性变化时
+    watch3(() => obj.bar, () => {
+      console.log('watch3 obj.foo变化了')
+    })
+    obj.bar++ // 102
+    // watch 第三版 支持传入getter
+    function watch3(source, cb) {
+      let getter
+      if (typeof source === 'function') {
+        getter = source
+      } else {
+        getter = () => traverse(source)
+      }
+      effect(() => getter(), {
+        scheduler() {
+          cb()
+        }
+      })
+    }
+    // 此外，watch函数在回调中还可以让我们拿到新值和旧值
+    // 使用方式如下
+    watch4(() => obj.bar,(newVal,oldVal) => {
+      console.log(newVal,oldVal); // 104 102
+    })
+    obj.bar+=2
+    // 需要借助到lazy选项
+    function watch4(source,cb){
+      let getter
+      if (typeof source === 'function') {
+        getter = source
+      } else {
+        getter = () => traverse(source)
+      }
+      let newVal,oldVal
+      let effectFn = effect(() => getter(), {
+        // 开启lazy，初始化时不执行effectFn,而有我们自己执行
+        // 因为这样可以拿到副作用函数的执行结果，也就是旧值
+        lazy:true,
+        scheduler() {
+          newVal = effectFn()
+          cb(newVal,oldVal)
+          oldVal = newVal
+        }
+      })
+      // 手动调用副作用函数，获取旧值
+      oldVal = effectFn()
+    }
+    // watch函数还支持立即执行功能，即调用watch函数时
+    // 先执行一次回调,使用方式如下
+    watch5(obj,() => {
+      console.log('立即执行一次')
+    },{
+      immediate:true
+    })
+    function watch5(source,cb,options ={}){
+      let getter
+      if (typeof source === 'function') {
+        getter = source
+      } else {
+        getter = () => traverse(source)
+      }
+      let newVal,oldVal
+      // 将scheduler中的逻辑单独抽成一个函数
+      const job = () => {
+        newVal = effectFn()
+        cb(newVal,oldVal)
+        oldVal = newVal
+      }
+      let effectFn = effect(() => getter(), {
+        // 开启lazy，初始化时不执行effectFn,而有我们自己执行
+        // 因为这样可以拿到副作用函数的执行结果，也就是旧值
+        lazy:true,
+        scheduler:job
+      })
+      if(options.immediate){
+        job()
+      }else{
+        oldVal = effectFn()
+      }
+    }
+    // watch还支持执行回调函数的执行时机
+    watch6(obj,() => {
+      console.log('微任务队列中更新')
+    },{
+      flush:'post' // pre 组件更新前执行 'post'组件更新后执行  'sync'同步执行
+    })
+    obj.bar++
+
+    function watch6(source,cb,options ={}){
+      let getter
+      if (typeof source === 'function') {
+        getter = source
+      } else {
+        getter = () => traverse(source)
+      }
+      let newVal,oldVal
+      // 将scheduler中的逻辑单独抽成一个函数
+      const job = () => {
+        newVal = effectFn()
+        cb(newVal,oldVal)
+        oldVal = newVal
+      }
+      let effectFn = effect(() => getter(), {
+        // 开启lazy，初始化时不执行effectFn,而有我们自己执行
+        // 因为这样可以拿到副作用函数的执行结果，也就是旧值
+        lazy:true,
+        scheduler(){
+          if(options.flush === 'post'){
+            Promise.resolve().then(job)
+          }else{
+            job()
+          }
+        }
+      })
+      if(options.immediate){
+        job()
+      }else{
+        oldVal = effectFn()
+      }
+    }
+    // 副作用的过期问题
+    let finalData
+    watch7(obj,async () => {
+      const res = await new Promise(resolve => {
+        let randTime = (Math.random()*5 | 0)*1000
+        setTimeout(() => {
+          resolve(randTime * 10)
+        },randTime)
+      })
+      console.log(res);
+      window.finalData = res
+    })
+    obj.bar++
+    function watch7(source,cb,options ={}){
+      let getter
+      if (typeof source === 'function') {
+        getter = source
+      } else {
+        getter = () => traverse(source)
+      }
+      let newVal,oldVal
+      // 将scheduler中的逻辑单独抽成一个函数
+      const job = () => {
+        newVal = effectFn()
+        cb(newVal,oldVal)
+        oldVal = newVal
+      }
+      let effectFn = effect(() => getter(), {
+        // 开启lazy，初始化时不执行effectFn,而有我们自己执行
+        // 因为这样可以拿到副作用函数的执行结果，也就是旧值
+        lazy:true,
+        scheduler(){
+          if(options.flush === 'post'){
+            Promise.resolve().then(job)
+          }else{
+            job()
+          }
+        }
+      })
+      if(options.immediate){
+        job()
+      }else{
+        oldVal = effectFn()
+      }
+    }
+
+  </script>
+</body>
+
+</html>
