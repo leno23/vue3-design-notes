@@ -2,112 +2,199 @@
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Document</title>
 </head>
 
 <body>
   <script>
     // computed计算属性的实现，与lazy选项
-    let data = { foo: 1 }
-    const buckets = new WeakMap()
+    let data = { foo: 1 };
+    const buckets = new WeakMap();
     const track = (target, key) => {
-      if (!activeEffect) return
-      let depsMap = buckets.get(target)
+      if (!activeEffect) return;
+      let depsMap = buckets.get(target);
       if (!depsMap) {
-        buckets.set(target, (depsMap = new Map()))
+        buckets.set(target, (depsMap = new Map()));
       }
-      let deps = depsMap.get(key)
+      let deps = depsMap.get(key);
       if (!deps) {
-        depsMap.set(key, (deps = new Set()))
+        depsMap.set(key, (deps = new Set()));
       }
-      deps.add(activeEffect)
-      activeEffect.deps.push(deps)
-    }
+      deps.add(activeEffect);
+      activeEffect.deps.push(deps);
+    };
     const trigger = (target, key) => {
-      let depsMap = buckets.get(target)
-      if (!depsMap) return
-      let deps = depsMap.get(key)
-      if (!deps) return
-      let effectsToRun = new Set()
-      deps.forEach(effectFn => {
+      let depsMap = buckets.get(target);
+      if (!depsMap) return;
+      let deps = depsMap.get(key);
+      if (!deps) return;
+      let effectsToRun = new Set();
+      deps.forEach((effectFn) => {
         if (activeEffect !== effectFn) {
-          effectsToRun.add(effectFn)
+          effectsToRun.add(effectFn);
         }
-      })
-      effectsToRun.forEach(effectFn => {
+      });
+      effectsToRun.forEach((effectFn) => {
         if (effectFn.options.scheduler) {
-          effectFn.options.scheduler(effectFn)
+          effectFn.options.scheduler(effectFn);
         } else {
-          effectFn()
+          effectFn();
         }
-      })
-    }
+      });
+    };
     const obj = new Proxy(data, {
       get(target, key) {
-        track(target, key)
-        return target[key]
+        track(target, key);
+        return target[key];
       },
       set(target, key, newVal) {
-        target[key] = newVal
-        trigger(target, key)
-      }
-    })
-    let activeEffect, effectStask = []
-    const cleanup = effectFn => {
+        target[key] = newVal;
+        trigger(target, key);
+      },
+    });
+    let activeEffect,
+      effectStask = [];
+    const cleanup = (effectFn) => {
       for (let effects of effectFn.deps) {
-        effects.delete(effectFn)
+        effects.delete(effectFn);
       }
-      effectFn.deps.length = 0
-    }
+      effectFn.deps.length = 0;
+    };
 
     const effect = (fn, options = {}) => {
       const effectFn = () => {
-        cleanup(effectFn)
-        activeEffect = effectFn
-        effectStask.push(effectFn)
-        let res = fn()
-        effectStask.pop()
-        activeEffect = effectStask[effectStask.length - 1]
+        cleanup(effectFn);
+        activeEffect = effectFn;
+        effectStask.push(effectFn);
+        let res = fn();
+        effectStask.pop();
+        activeEffect = effectStask[effectStask.length - 1];
         // 返回res，便于在computed函数拿到结果
-        return res
-      }
-      effectFn.options = options
-      effectFn.deps = []
+        return res;
+      };
+      effectFn.options = options;
+      effectFn.deps = [];
       // 指定lazy为true时，不会立即执行副作用函数
       if (!options.lazy) {
-        effectFn()
+        effectFn();
       }
-    }
+      return effectFn;
+    };
     {
       // step1 如下添加一个副作用函数之后，该函数会立即执行一次
       // 在有些场景下，希望只有obj.foo改变之后才会执行
       // 指定lazy选项会有这样的效果
-      effect(() => {
-        console.log(obj.foo)
-      }, {
-        lazy: true
-      })
-      obj.foo++
+      effect(
+        () => {
+          console.log(obj.foo);
+        },
+        {
+          lazy: true,
+        }
+      );
+      obj.foo++;
 
       // 实现computed函数，允许传入一个getter函数，可以返回getter函数的值
       // 而且在依赖发生改变时，会自动执行getter函数
-      function computed(getter) {
+      function computed1(getter) {
         const effectFn = effect(getter, {
-          lazy: true
-        })
+          lazy: true,
+        });
         return {
           // ES新增，访问value属性时，会自动执行getter函数
           get value() {
-            return effectFn()
-          }
-        }
+            return effectFn();
+          },
+        };
       }
-      // 
-      const computedVal = computed(() => obj.foo * 2)
+      //
+      const computedVal1 = computed1(() => {
+        console.log("effect");
+        return obj.foo * 2;
+      });
+      // 如果我们打印三次结果，发现getter函数执行了三次，
+      // 但实际依赖项obj.foo并没有改变，后面两次的执行时多余的
+      // 在依赖项不变时。需要考虑缓存结果
 
+      console.log(computedVal1.value);
+      console.log(computedVal1.value);
+      console.log(computedVal1.value);
+
+      function computed2(getter) {
+        let value; // 缓存上次计算的值
+        let dirty = true; // 表示当前computed的依赖的值是否改变
+        const effectFn = effect(getter, {
+          lazy: true,
+        });
+        return {
+          // ES新增，访问value属性时，会自动执行getter函数
+          get value() {
+            if (dirty) {
+              value = effectFn();
+              dirty = false;
+            }
+            return value;
+          },
+        };
+      }
+      //
+      const computedVal2 = computed2(() => {
+        console.log("effect2");
+        return obj.foo * 2;
+      });
+      console.log(computedVal2.value);
+      console.log(computedVal2.value);
+      console.log(computedVal2.value);
+      // getter只会执行一次
+      // 但是，此时如果我们改变依赖项的值，我们发现结果依然是4
+      obj.foo++;
+      console.log(computedVal2.value);
+
+      // 在scheduler中将dirty设置为false
+      function computed3(getter) {
+        let value; // 缓存上次计算的值
+        let dirty = true; // 表示当前computed的依赖的值是否改变
+        const effectFn = effect(getter, {
+          lazy: true,
+          scheduler() {
+            if (!dirty) {
+              dirty = true;
+              trigger(obj, "value");
+            }
+          },
+        });
+        const obj = {
+          // ES新增，访问value属性时，会自动执行getter函数
+          get value() {
+            if (dirty) {
+              value = effectFn();
+              dirty = false;
+            }
+            track(obj, "value");
+            return value;
+          },
+        };
+        return obj;
+      }
+
+      const computedVal3 = computed3(() => {
+        console.log("effect2");
+        return obj.foo * 2;
+      });
+      console.log(computedVal3.value);
+      console.log(computedVal3.value);
+      console.log(computedVal3.value);
+      // obj.foo++
+      console.log(computedVal3.value);
+
+      // 当时当前computed如果在一个effect函数中被访问，会存在问题
+      effect(() => {
+        console.log(computedVal3.value, "computed in effect");
+      });
+      obj.foo+=2;
     }
   </script>
 </body>
