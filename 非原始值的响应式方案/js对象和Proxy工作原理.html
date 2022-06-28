@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script>
+    // 在javascript中，对象的实际语义是由对象的内部方法指定的。
+    // 内部方法，指的是当我们对一个对象进行操作时，引擎内部调用的方法
+    // 这些方法对于JavaScript使用者来说是不可见的
+    // 例如：访问一个对象属性时
+    // obj.foo
+    // 引擎内部会调用obj.[[GET]]方法来读取属性值。
+    // 在ECMAScript中，用[[xx]]来代表内部方法或内部槽
+
+    // 一个对象需要在内部部署下列11个方法
+    // 获取对象的原型对象
+    // [[GetPrototypeOf]] ()->Object | Null  
+    // 设置对象的原型对象，返回操作是否成功
+    // [[SetProrotypeOf]] (Object|Null)->Boolean
+    // 是否允许给对象添加属性
+    // [[IsExtensible]] ()->Boolean 
+    // 控制能否向对象添加新属性，返回操作是否成功
+    // [[PreventExtensions]] ()->Boolean
+    // 返回对象上指定属性的描述符
+    // [[GetOwnProperty]] (propertyKey)->Undefined|PropertyDescriptor
+    // 创建或者更改自身的属性，返回操作是否成功
+    // [[DefineOwnProperty]] (propertyKey,PropertyDescriptor)->Boolean
+    // 返回对象自身或原型上面是否有指定的属性
+    // [[HasProperty]] (propertyKey)->Boolean
+    // 获取对象自身和原型上面的属性的值
+    // [[Get]] (propertyKey,Receiver)->any
+    // 设置对象指定属性的值，返回操作是否成功
+    // [[Set]] (propertyKey,value,Receiver)->Boolean
+    // 删除对象自身的属性，返回操作是否成功
+    // [[Delete]] (propertyKey) -> Boolean
+    // 返回对象自身的所有属性
+    // [[OwnPropertyKeys]] ()->List of propertyKey
+    // 此外，函数对象，还有额外两个方法
+    // 调用指定方法，并传入指定的this，即第一个参数，后面为方法的参数列表
+    // [[Call]] (any,a List of any) -> any
+    // 创建一个对象(类).通过new或super操作符调用触发
+    // [[Construct]] (a List of any,Object)->Object
+
+    // 一个对象是否可以作为函数或者构造函数调用，通过判断是否有[[Call]]和
+    // [[Construct]]内部方法来区分
+
+    // 内部方法具有多态性，即不同类型的对象部署了相同的内部方法，但是实现逻辑却不一样
+    // 例如
+    // 普通对象的[[Get]]内部方法的执行逻辑在ECMA规范10.1.8节定义
+    // 而Proxy对象的[[Get]]方法的执行逻辑在ECMA规范的10.5.8节定义
+
+    // 这样，我们就可以区分js中的普通对象和异质对象了
+    // 满足下列三个条件的是普通对象，而所有不满足这三点的都是异质对象了
+    // 1.对于以上列出的所有内部方法，使用ECMA规范10.1.x来实现
+    // 2.对于[[Call]]，使用ECMA规范10.2.1来实现
+    // 2.对于[[Construct]]，使用ECMA规范10.2.2来实现
+    
+    // 所以，我们知道了Proxy是异质对象
+    // 创建代理对象时指定的拦截函数，实际上是用来自定义代理对象本身的内部方法和行为的，
+    // 而不是用来指定被代理对象的内部方法和行为的
+    // Proxy部署的内部方法和行为的拦截器名字
+    // [[GetPrototypeOf]] getPrototypeOf
+    // [[SetPrototypeOf]] setPrototypeOf
+    // [[IsExtensible]] isExtensible
+    // [[PreventExtensions]] preventExtensions
+    // [[GetOwnProperty]] getOwnPropertyDescriptor
+    // [[DefineOwnProperty]] defineProperty
+    // [[HasProperty]] has
+    // [[Get]] get
+    // [[Set]] set
+    // [[Delete]] deleteProperty
+    // [[OwnPropertyKeys]] ownKeys
+    // [[Call]] apply
+    // [[Construct]] construct
+    // [[Call]] [[Construct]]这两个内部方法只有被代理对象时函数时，才会部署
+  </script>
+</body>
+</html>
