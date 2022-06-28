@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script>
+    // Vue3的响应式数据是基于Proxy实现的，与之对应的是Reflect对象
+    // Proxy只能代理对象，不能代理原始类型的值。
+    // 代理指的是对一个对象基本语义的拦截
+
+    // 对于普通对象，对它可以进行属性的读取和赋值操作，对应的拦截方法就是get set
+    // 函数也是一种对象，对于函数的调用也对应一个拦截方法apply
+    // 调用一个对象下的方法对应的操作是符合操作，由get和apply组成
+
+    // 了解了Proxy之后，在看Reflect，可以发现Reflect下的方法和Proxy的拦截器方法名字相同，
+    // 这不是巧合。Reflect中的一个方法对应一个对象的默认操作行为
+    // 例如：
+    {
+      const obj = {foo:1}
+      Reflect.get(obj,'foo') // 这个操作等价于obj.foo
+      // 既然效果等价，为什么需要这个对象呢？
+      // 因为Reflect支持传入第三个参数：被操作的对象
+
+      // 下面将会得到2，而不是1
+      Reflect.get(obj,'foo',{foo:2})
+    }
+    {
+      // 知道这些有什么用呢？
+      // 这就要引入一个例子，也是上一章实现的响应式方案的漏洞
+      let data = {
+        bar:1,
+        get foo(){
+          return this.bar
+        }
+      }
+      // 这里我们代理的对象中有一个getter
+      let p = new Proxy(data,{
+        get(target,key,receiver){
+          console.log('track',key)
+          return target[key]
+          // return Reflect.get(target,key,receiver)
+        },
+      })
+      console.log(p.foo) 
+      // 不会追踪到对bar的依赖
+      // 这是因为，target指向的原始的对象data,那么foo getter中this指向原始对象data
+      // 相当于读取了原始对象data的bar属性，此时不会触发代理对象的getter执行
+
+      // 当换成Reflect代替访问属性时，依赖可以完整的收集
+    }
+  </script>
+
+</body>
+</html>
