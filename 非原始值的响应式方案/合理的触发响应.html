@@ -10,7 +10,7 @@
 
 <body>
   <script>
-    let data = { foo: 1,name:'tom' };
+    let data = { foo: 1, name: 'tom' };
     let INTERATE_KEY = Symbol()
     const buckets = new WeakMap();
     const track = (target, key) => {
@@ -27,11 +27,11 @@
       activeEffect.deps.push(deps);
     };
     const TriggerType = {
-      SET:'SET',
-      ADD:'ADD',
-      DELETE:'DELETE'
+      SET: 'SET',
+      ADD: 'ADD',
+      DELETE: 'DELETE'
     }
-    const trigger = (target, key,type) => {
+    const trigger = (target, key, type) => {
       let depsMap = buckets.get(target);
       if (!depsMap) return;
       let effects = depsMap.get(key);
@@ -41,7 +41,7 @@
           effectsToRun.add(effectFn);
         }
       });
-      if(type === TriggerType.ADD||type === TriggerType.DELETE){
+      if (type === TriggerType.ADD || type === TriggerType.DELETE) {
         const iterateEffects = depsMap.get(INTERATE_KEY)
         iterateEffects && iterateEffects.forEach((effectFn) => {
           if (activeEffect !== effectFn) {
@@ -57,42 +57,52 @@
         }
       });
     };
-    const obj = new Proxy(data, {
-      deleteProperty(target,key){
-        const hadKey = Object.prototype.hasOwnProperty.call(target,key)
-        const res = Reflect.deleteProperty(target,key)
-        if(res &&hadKey){
+    function reactive(data) {
+      return new Proxy(data, {
+        deleteProperty(target, key) {
+          const hadKey = Object.prototype.hasOwnProperty.call(target, key)
+          const res = Reflect.deleteProperty(target, key)
+          if (res && hadKey) {
 
-          trigger(target,key,'DELETE')
-        }
-        return res
-      },
-      ownKeys(target){
-        // 将副作用函数与ITERATE关联
-        track(target, INTERATE_KEY);
-        return Reflect.ownKeys(target);
-      },
-      // 拦截in 操作符
-      has(target, key) {
-        track(target, key);
-        return target[key];
-      },
-      get(target, key) {
-        track(target, key);
-        return target[key];
-      },
-      set(target, key, newVal,receiver) {
-        let oldVal = target[key]
-        const type = Object.prototype.hasOwnProperty.call(target,key) ? 'SET' : 'ADD'
-        const res = Reflect.set(target,key,newVal,receiver)
-        // 修改前后值没有变化，不触发副作用函数执行
-        // 过滤掉一个值变化前后都是NaN的情况
-        if(oldVal != newVal && (oldVal===oldVal || newVal===newVal)){
-          trigger(target, key,type);
-        }
-        return res
-      },
-    });
+            trigger(target, key, 'DELETE')
+          }
+          return res
+        },
+        ownKeys(target) {
+          // 将副作用函数与ITERATE关联
+          track(target, INTERATE_KEY);
+          return Reflect.ownKeys(target);
+        },
+        // 拦截in 操作符
+        has(target, key) {
+          track(target, key);
+          return Reflect.set(target,key);
+        },
+        get(target, key,receiver) {
+          // 代理对象可以通过raw属性访问当原始对象
+          if(key === 'raw'){
+            return target
+          }
+          track(target, key);
+          return Reflect.get(target,key,receiver);
+        },
+        set(target, key, newVal, receiver) {
+          let oldVal = target[key]
+          const type = Object.prototype.hasOwnProperty.call(target, key) ? 'SET' : 'ADD'
+          const res = Reflect.set(target, key, newVal, receiver)
+          // 修改前后值没有变化，不触发副作用函数执行
+          // 过滤掉一个值变化前后都是NaN的情况
+          if(target === receiver.raw){
+
+            if (oldVal != newVal && (oldVal === oldVal || newVal === newVal)) {
+              trigger(target, key, type);
+            }
+            return res
+          }
+        },
+      });
+    }
+
     let activeEffect,
       effectStask = [];
     const cleanup = (effectFn) => {
@@ -121,12 +131,34 @@
       }
       return effectFn;
     };
-    effect(() => {
-      console.log(obj.foo)
-    })
-    obj.foo=1  
+    const obj = reactive(data)
+    // effect(() => {
+    //   console.log(obj.foo)
+    // })
+    // obj.foo = 1
     // 在这里修改foo的值，但是修改前后foo的值是一样的，也不应该触发副作用函数的执行的
-  
+    const obj1 = {}
+    const proto = { bar: 1 }
+    const child = reactive(obj1)
+    const parent = reactive(proto)
+    Object.setPrototypeOf(child, parent)
+    effect(() => {
+      console.log('child.bar ->',child.bar)
+    })
+    child.bar = 2  // 副作用会被执行两次
+
+    // 那么，为什么副作用会触发两次呢？
+    
+    // set child.bar  -->effect触发 -->get child.bar -> get parent.bar(将child和parent都收集为当前副作用函数的依赖)
+    // set child.bar(若属性不存在) -> set parent.val(设置值为undefined) --> effect触发
+
+    //  依赖与副作用函数的对应关系,child和parent有改变都会触发
+    //   child.var  --> [Effect]
+    //   parent.val --> [Effect]
+
+    // 所以，解决这个问题的方法就是区分出触发副作用函数的对象是不是收集依赖的对象
+
+
 
   </script>
 </body>
