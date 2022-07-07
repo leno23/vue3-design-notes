@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <script>
+    let data = { foo: 1,name:'tom' };
+    let INTERATE_KEY = Symbol()
+    const buckets = new WeakMap();
+    const track = (target, key) => {
+      if (!activeEffect) return;
+      let depsMap = buckets.get(target);
+      if (!depsMap) {
+        buckets.set(target, (depsMap = new Map()));
+      }
+      let deps = depsMap.get(key);
+      if (!deps) {
+        depsMap.set(key, (deps = new Set()));
+      }
+      deps.add(activeEffect);
+      activeEffect.deps.push(deps);
+    };
+    const TriggerType = {
+      SET:'SET',
+      ADD:'ADD',
+      DELETE:'DELETE'
+    }
+    const trigger = (target, key,type) => {
+      let depsMap = buckets.get(target);
+      if (!depsMap) return;
+      let effects = depsMap.get(key);
+      let effectsToRun = new Set();
+      effects && effects.forEach((effectFn) => {
+        if (activeEffect !== effectFn) {
+          effectsToRun.add(effectFn);
+        }
+      });
+      if(type === TriggerType.ADD||type === TriggerType.DELETE){
+        const iterateEffects = depsMap.get(INTERATE_KEY)
+        iterateEffects && iterateEffects.forEach((effectFn) => {
+          if (activeEffect !== effectFn) {
+            effectsToRun.add(effectFn);
+          }
+        });
+      }
+      effectsToRun.forEach((effectFn) => {
+        if (effectFn.options.scheduler) {
+          effectFn.options.scheduler(effectFn);
+        } else {
+          effectFn();
+        }
+      });
+    };
+    const obj = new Proxy(data, {
+      deleteProperty(target,key){
+        const hadKey = Object.prototype.hasOwnProperty.call(target,key)
+        const res = Reflect.deleteProperty(target,key)
+        if(res &&hadKey){
+
+          trigger(target,key,'DELETE')
+        }
+        return res
+      },
+      ownKeys(target){
+        // 将副作用函数与ITERATE关联
+        track(target, INTERATE_KEY);
+        return Reflect.ownKeys(target);
+      },
+      // 拦截in 操作符
+      has(target, key) {
+        track(target, key);
+        return target[key];
+      },
+      get(target, key) {
+        track(target, key);
+        return target[key];
+      },
+      set(target, key, newVal,receiver) {
+        const type = Object.prototype.hasOwnProperty.call(target,key) ? 'SET' : 'ADD'
+        const res = Reflect.set(target,key,newVal,receiver)
+        trigger(target, key,type);
+        return res
+      },
+    });
+    let activeEffect,
+      effectStask = [];
+    const cleanup = (effectFn) => {
+      for (let effects of effectFn.deps) {
+        effects.delete(effectFn);
+      }
+      effectFn.deps.length = 0;
+    };
+
+    const effect = (fn, options = {}) => {
+      const effectFn = () => {
+        cleanup(effectFn);
+        activeEffect = effectFn;
+        effectStask.push(effectFn);
+        let res = fn();
+        effectStask.pop();
+        activeEffect = effectStask[effectStask.length - 1];
+        // 返回res，便于在computed函数拿到结果
+        return res;
+      };
+      effectFn.options = options;
+      effectFn.deps = [];
+      // 指定lazy为true时，不会立即执行副作用函数
+      if (!options.lazy) {
+        effectFn();
+      }
+      return effectFn;
+    };
+    effect(() => {
+      // 使用in操作符读取属性时，之前实现的响应式并不能正常运作
+      console.log('foo' in obj)
+    })
+    // obj.foo = 2
+
+    // 1根据查阅ECMA规范10.13.1，可知in操作符的结果是通过调用[HasProperty]
+    // 属性获取的，而[HasProperyty]对应的拦截函数是has
+    // 故修改我们Proxy
+
+    effect(() => {
+      for (let key in obj) console.log('for in ->', key)
+    })
+
+    // obj.bar = 2
+  // 2另外，还有for...in操作
+  // 在副作用函数中使用for...in读取对象属性时，仍然不能拦截到
+  // 所以，需要再次修改Proxy
+  // 我们添加了ownKeys这样新的拦截器，可以拦截for...in循环，
+  // 由于ownKeys用来获取一个对象所有属于自己的键值，这个操作不与明显的简直绑定
+  // 因此需要唯一的key作为标识.
+  // 同时当我们给obj添加新属性时，也会影响for...in循环的次数，所以在添加新属性
+  // 时，需要触发INTERATE_KEY对应的依赖更新
+
+  // 3但是，当前的实现还有一个问题，它体现在我们修改obj.foo时，
+  // 这里并不影响for...in的迭代次数，应该不会导致for...in的副作用重新执行
+  // 但是，结果却应影响到了，所以在trigger中需要区分添加新属性和修改原有属性
+  // 这两种操作
+
+  // 4接下来的问题就是如何代理delete 操作符呢？
+  delete obj.foo
+
+  </script>
+</body>
+
+</html>
