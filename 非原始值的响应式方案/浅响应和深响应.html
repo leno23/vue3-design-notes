@@ -144,7 +144,7 @@
       }
       return effectFn;
     };
-    const obj = reactive({foo:{bar:1}})
+    const obj = shallowReactive({foo:{bar:1}})
     effect(() => {
       console.log('obj.foo.bar-->',obj.foo.bar)
     })
