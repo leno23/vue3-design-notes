@@ -2,19 +2,19 @@
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Document</title>
 </head>
 
 <body>
   <script>
-    let data = { foo: 1, name: 'tom' };
-    let INTERATE_KEY = Symbol()
+    let data = { foo: 1, name: "tom" };
+    let INTERATE_KEY = Symbol();
     const buckets = new WeakMap();
     const track = (target, key) => {
-      if (!activeEffect) return;
+      if (!activeEffect || !shouldTrack) return;
       let depsMap = buckets.get(target);
       if (!depsMap) {
         buckets.set(target, (depsMap = new Map()));
@@ -27,47 +27,50 @@
       activeEffect.deps.push(deps);
     };
     const TriggerType = {
-      SET: 'SET',
-      ADD: 'ADD',
-      DELETE: 'DELETE'
-    }
+      SET: "SET",
+      ADD: "ADD",
+      DELETE: "DELETE",
+    };
     const trigger = (target, key, type, newVal) => {
       let depsMap = buckets.get(target);
       if (!depsMap) return;
       let effects = depsMap.get(key);
       let effectsToRun = new Set();
-      effects && effects.forEach((effectFn) => {
-        if (activeEffect !== effectFn) {
-          effectsToRun.add(effectFn);
-        }
-      });
-      if (Array.isArray(target)) {
-        if (key === 'length') {
-          depsMap.forEach((effects, key) => {
-            if (key < newVal) return
-            for (let effectFn of effects) {
-              if (effect === activeEffect) continue
-              effectsToRun.add(effectFn)
-            }
-          })
-        }
-        if (type === TriggerType.ADD) {
-          // 添加元素时，由于length会隐式变化，这里取出和length相关的副作用函数
-          const lengthEffects = depsMap.get('length')
-          lengthEffects && lengthEffects.forEach((effectFn) => {
-            if (activeEffect !== effectFn) {
-              effectsToRun.add(effectFn);
-            }
-          });
-        }
-      }
-      if (type === TriggerType.ADD || type === TriggerType.DELETE) {
-        const iterateEffects = depsMap.get(INTERATE_KEY)
-        iterateEffects && iterateEffects.forEach((effectFn) => {
+      effects &&
+        effects.forEach((effectFn) => {
           if (activeEffect !== effectFn) {
             effectsToRun.add(effectFn);
           }
         });
+      if (Array.isArray(target)) {
+        if (key === "length") {
+          depsMap.forEach((effects, key) => {
+            if (key < newVal) return;
+            for (let effectFn of effects) {
+              if (effect === activeEffect) continue;
+              effectsToRun.add(effectFn);
+            }
+          });
+        }
+        if (type === TriggerType.ADD) {
+          // 添加元素时，由于length会隐式变化，这里取出和length相关的副作用函数
+          const lengthEffects = depsMap.get("length");
+          lengthEffects &&
+            lengthEffects.forEach((effectFn) => {
+              if (activeEffect !== effectFn) {
+                effectsToRun.add(effectFn);
+              }
+            });
+        }
+      }
+      if (type === TriggerType.ADD || type === TriggerType.DELETE) {
+        const iterateEffects = depsMap.get(INTERATE_KEY);
+        iterateEffects &&
+          iterateEffects.forEach((effectFn) => {
+            if (activeEffect !== effectFn) {
+              effectsToRun.add(effectFn);
+            }
+          });
       }
       effectsToRun.forEach((effectFn) => {
         if (effectFn.options.scheduler) {
@@ -77,34 +80,53 @@
         }
       });
     };
-    const originalMethod = Array.prototype.includes
+    const originalMethod = Array.prototype.includes;
     const arrayInstrumentations = {
-      includes(...args){
-        let res = originalMethod.apply(this,args)
-        if(res == false){
-          res = originalMethod.apply(this.raw,args)
+      includes(...args) {
+        let res = originalMethod.apply(this, args);
+        if (res == false) {
+          res = originalMethod.apply(this.raw, args);
         }
-        return res
-      }
-    }
-    function createReactive(data, isShallow = false, isReadonly = false) {
+        return res;
+      },
+    };
+    let shouldTrack = true;
+    ["push", "pop", "shift", "unshift", "splice"].forEach((method) => {
+      const originMethod = Array.prototype[method];
+      arrayInstrumentations[method] = function (...args) {
+        shouldTrack = false;
+        let res = originMethod.apply(this, args);
+        shouldTrack = true;
+        return res;
+      };
+    });
+    function createReactive(
+      data,
+      isShallow = false,
+      isReadonly = false
+    ) {
       return new Proxy(data, {
         deleteProperty(target, key) {
           if (isReadonly) {
-            console.warn(`属性${key}是只读的`)
-            return true
+            console.warn(`属性${key}是只读的`);
+            return true;
           }
-          const hadKey = Object.prototype.hasOwnProperty.call(target, key)
-          const res = Reflect.deleteProperty(target, key)
+          const hadKey = Object.prototype.hasOwnProperty.call(
+            target,
+            key
+          );
+          const res = Reflect.deleteProperty(target, key);
           if (res && hadKey) {
-
-            trigger(target, key, 'DELETE')
+            trigger(target, key, "DELETE");
           }
-          return res
+          return res;
         },
         ownKeys(target) {
           // 将副作用函数与ITERATE关联
-          track(target, Array.isArray(target) ? 'length' : INTERATE_KEY);
+          track(
+            target,
+            Array.isArray(target) ? "length" : INTERATE_KEY
+          );
           return Reflect.ownKeys(target);
         },
         // 拦截in 操作符
@@ -114,66 +136,77 @@
         },
         get(target, key, receiver) {
           // 代理对象可以通过raw属性访问当原始对象
-          if (key === 'raw') {
-            return target
+          if (key === "raw") {
+            return target;
           }
-          if(Array.isArray(target) && arrayInstrumentations.hasOwnProperty(key)){
-            return Reflect.get(arrayInstrumentations,key,receiver)
+          if (
+            Array.isArray(target) &&
+            arrayInstrumentations.hasOwnProperty(key)
+          ) {
+            return Reflect.get(
+              arrayInstrumentations,
+              key,
+              receiver
+            );
           }
-          if (!isReadonly && typeof key != 'symbol') {
+          if (!isReadonly && typeof key != "symbol") {
             track(target, key);
           }
-          const res = Reflect.get(target, key, receiver)
+          const res = Reflect.get(target, key, receiver);
           if (isShallow) {
-            return res
+            return res;
           }
-          if (typeof res === 'object' && res !== null) {
+          if (typeof res === "object" && res !== null) {
             // 如何数据只读，则调用readonly 对值进行包装
-            return isReadonly ? readonly(res) : reactive(res)
+            return isReadonly ? readonly(res) : reactive(res);
           }
-          return res
+          return res;
         },
         set(target, key, newVal, receiver) {
           if (isReadonly) {
-            console.warn(`[warn]:属性${key}是只读的`)
-            return true
+            console.warn(`[warn]:属性${key}是只读的`);
+            return true;
           }
-          let oldVal = target[key]
-          const type = Array.isArray(target) ?
-            // 数组设置大于原数组length的索引，就视为添加操作
-            Number(key) < target.length ?
-              'SET' : 'ADD' :
-            Object.prototype.hasOwnProperty.call(target, key) ?
-              'SET' : 'ADD'
-          const res = Reflect.set(target, key, newVal, receiver)
+          let oldVal = target[key];
+          const type = Array.isArray(target)
+            ? // 数组设置大于原数组length的索引，就视为添加操作
+            Number(key) < target.length
+              ? "SET"
+              : "ADD"
+            : Object.prototype.hasOwnProperty.call(target, key)
+              ? "SET"
+              : "ADD";
+          const res = Reflect.set(target, key, newVal, receiver);
           // 修改前后值没有变化，不触发副作用函数执行
           // 过滤掉一个值变化前后都是NaN的情况
           if (target === receiver.raw) {
-
-            if (oldVal != newVal && (oldVal === oldVal || newVal === newVal)) {
+            if (
+              oldVal != newVal &&
+              (oldVal === oldVal || newVal === newVal)
+            ) {
               trigger(target, key, type, newVal);
             }
-            return res
+            return res;
           }
         },
       });
     }
-    const reactiveMap = new Map()
+    const reactiveMap = new Map();
     function reactive(obj) {
-      const existProxy = reactiveMap.get(obj)
-      if(existProxy) return existProxy
-      const proxy = createReactive(obj)
-      reactiveMap.set(obj,proxy)
-      return proxy
+      const existProxy = reactiveMap.get(obj);
+      if (existProxy) return existProxy;
+      const proxy = createReactive(obj);
+      reactiveMap.set(obj, proxy);
+      return proxy;
     }
     function shallowReactive(obj) {
-      return createReactive(obj, true)
+      return createReactive(obj, true);
     }
     function readonly(obj) {
-      return createReactive(obj, false, true)
+      return createReactive(obj, false, true);
     }
     function shallowReadonly(obj) {
-      return createReactive(obj, true, true)
+      return createReactive(obj, true, true);
     }
 
     let activeEffect,
@@ -205,30 +238,29 @@
       return effectFn;
     };
 
-
     // 但是数组的修改方式有很多
     // a1.通过索引修改;添加不存在的索引值 例如 obj[1] = 3
     {
-      const obj1 = reactive(['foo', 1])
+      const obj1 = reactive(["foo", 1]);
       effect(() => {
-        console.log('obj1[0]-->', obj1[0])
-      })
-      obj1[0] = 2  // 定义一个数组类型的响应式对象，通过索引修改可以触发响应
+        console.log("obj1[0]-->", obj1[0]);
+      });
+      obj1[0] = 2; // 定义一个数组类型的响应式对象，通过索引修改可以触发响应
     }
     {
-      const obj2 = reactive(['foo', 1])
+      const obj2 = reactive(["foo", 1]);
       effect(() => {
-        console.log('obj2 length', obj2.length)
-      })
-      obj2[2] = 2  // 这会隐式修改数组的length属性
+        console.log("obj2 length", obj2.length);
+      });
+      obj2[2] = 2; // 这会隐式修改数组的length属性
     }
     // a2.直接修改数组的length属性,导致元素被删除
     {
-      const obj3 = reactive(['foo', 1])
+      const obj3 = reactive(["foo", 1]);
       effect(() => {
-        console.log('obj3[1]', obj3[1])
-      })
-      obj3.length = 1  // 这会隐式删除数组中索引大于等于1的元素
+        console.log("obj3[1]", obj3[1]);
+      });
+      obj3.length = 1; // 这会隐式删除数组中索引大于等于1的元素
     }
     // a3.通过 pop/push/shift/unshift/splice/fill/sort
     // 数组的访问方式有哪些呢？
@@ -237,13 +269,13 @@
     // b3.for...in  for...of
     {
       {
-        const arr = reactive(['foo', 1])
+        const arr = reactive(["foo", 1]);
         effect(() => {
           for (let key in arr) {
-            console.log('obj4', arr[key])
+            console.log("obj4", arr[key]);
           }
-        })
-        arr[1] = 2          // 会触发响应
+        });
+        arr[1] = 2; // 会触发响应
         // arr.length = 1  // 会触发响应
       }
     }
@@ -255,52 +287,59 @@
             next() {
               return {
                 value: obj.val++,
-                done: obj.val > 10 ? true : false
-              }
-            }
-          }
-        }
-      }
+                done: obj.val > 10 ? true : false,
+              };
+            },
+          };
+        },
+      };
       for (let x of obj) {
-        console.log('[test iterator]-->',x);
+        console.log("[test iterator]-->", x);
       }
     }
     {
       {
-        const arr = reactive(['foo', 1])
+        const arr = reactive(["foo", 1]);
         effect(() => {
           for (let val of arr) {
-            console.log('obj5', val)
+            console.log("obj5", val);
           }
-        })
+        });
         // arr[1] = 2          // 会触发响应
-        arr.length = 1  // 会触发响应
+        arr.length = 1; // 会触发响应
       }
     }
     // b4.concat/join/every/some/find等
     {
-      const arr = reactive([1,2])
+      const arr = reactive([1, 2]);
       effect(() => {
-        console.log('test includes->', arr.includes(1));
-      })
-      arr[0]=3
+        console.log("test includes->", arr.includes(1));
+      });
+      arr[0] = 3;
     }
     {
-      const o = {}
-      const arr = reactive([o])
+      const o = {};
+      const arr = reactive([o]);
       console.log(arr.includes(arr[0])); // false
     }
     {
-      const o = {}
-      const arr = reactive([o])
+      const o = {};
+      const arr = reactive([o]);
       console.log(arr.includes(o)); // false
     }
+    {
+      const arr = reactive([]);
+      effect(() => {
+        arr.push(1);
+      });
+      effect(() => {
+        arr.push(1);
+      });
+    }
 
-    // 对于a1，需要在trigger中添加对length属性的拦截
-    // 对于a2，需要在trigger中添加一个参数newVal，即修改后的length值，
-    // 它会导致索引大于等于newVal的元素被删除，所以需要触发这些元素的依赖响应。
-
-
+            // 对于a1，需要在trigger中添加对length属性的拦截
+            // 对于a2，需要在trigger中添加一个参数newVal，即修改后的length值，
+            // 它会导致索引大于等于newVal的元素被删除，所以需要触发这些元素的依赖响应。
   </script>
 </body>
 
