@@ -3,12 +3,14 @@ import { ReactiveFlags } from './reactive'
 
 const get = createGetter()
 const set = createSetter()
-const readOnlyGet = createGetter()
+const readOnlyGet = createGetter(true)
 function createGetter(isReadonly = false) {
     return function get(target: any, key: any, value: any) {
         const res = Reflect.get(target, key)
         if(key ===ReactiveFlags.IS_REACTIVE){
             return  !isReadonly
+        }else if(key ===ReactiveFlags.IS_READONLY){
+            return isReadonly
         }
         if (!isReadonly) {
 
