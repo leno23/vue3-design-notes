@@ -42,9 +42,28 @@ function trackRefValue(ref) {
 export function ref(value): any {
     return new RefImple(value)
 }
+
 export function isRef(ref): any {
     return !!ref.__v_isRef
 }
+
 export function unRef(ref): any {
     return isRef(ref) ? ref.value : ref
+}
+
+export function proxyRefs(objectWithRefs:any): any {
+    return new Proxy(objectWithRefs, {
+        get(target, key) {
+            return unRef(Reflect.get(target, key))
+        },
+        set(target, key, value) {
+            // value原来是ref，赋值为单值，则改变他的value
+            if(isRef(target[key])  && !isRef(value)){
+                return target[key].value = value
+            }else{
+                // 赋值为ref，执行set操作
+                return Reflect.set(target,key,value)
+            }
+        }
+    })
 }
