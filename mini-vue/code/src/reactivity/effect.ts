@@ -1,6 +1,7 @@
 import { extend } from '../shared'
 
 let activeEffect: any = null
+let shouldTrack = false
 class ReactiveEffect {
     deps: any = []
     active = true
@@ -12,9 +13,20 @@ class ReactiveEffect {
         this.scheduler = scheduler
     }
     run() {
+        // 调用stop后时，不可以收集依赖 防止stop()之后，state.num++重新收集依赖导致stop失效
+        if (!this.active) {
+            return this._fn()
+        }
+
+        // 1.会收集依赖
+        shouldTrack = true
         activeEffect = this
-        return this._fn()
+        const res = this._fn()
+        // reset
+        shouldTrack = false
+        return res
     }
+    // 同一个副作用依赖，stop只允许调用一次
     stop() {
         // 防止重复调用
         if (this.active) {
@@ -31,10 +43,15 @@ function cleanupEffect(effect: any) {
     for (let dep of effect.deps) {
         dep.delete(effect)
     }
+    effect.deps.length = 0
+}
+export function isTracking() {
+    return shouldTrack && activeEffect
 }
 
 const targetMap = new Map()
 export function track(target: any, key: any) {
+    if (!isTracking()) return
     let depsMap = targetMap.get(target)
     if (!depsMap) {
         depsMap = new Map()
@@ -45,14 +62,26 @@ export function track(target: any, key: any) {
         dep = new Set()
         depsMap.set(key, dep)
     }
-    if (!activeEffect) return
+    trackEffects(dep)
+}
+export  function trackEffects(dep){
+    // 防止重复收集
+    if (dep.has(activeEffect)) return
+    // 依赖双向收集
+    // 变量依赖那些副作用
     dep.add(activeEffect)
+    // 副作用依赖那些变量
     activeEffect.deps.push(dep)
 }
+
 export function trigger(target: any, key: any) {
     let depsMap = targetMap.get(target)
     let dep = depsMap.get(key)
 
+    triggerEffects(dep)
+}
+
+export function triggerEffects(dep){
     for (const effect of dep) {
         if (effect.scheduler) {
             effect.scheduler()

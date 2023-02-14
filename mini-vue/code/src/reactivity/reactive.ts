@@ -1,6 +1,6 @@
-import { mutableHanlders, readonlyHanlders } from './baseHandlers'
+import { mutableHanlders, readonlyHanlders, shallowReadonlyHanlders } from './baseHandlers'
 
-function createActiveObject(raw,baseHandlers){
+function createActiveObject(raw, baseHandlers) {
     return new Proxy(raw, baseHandlers)
 
 }
@@ -12,12 +12,19 @@ export enum ReactiveFlags {
 export function reactive(raw: any) {
     return createActiveObject(raw, mutableHanlders)
 }
-export function readonly(raw:any) {
+export function readonly(raw: any) {
     return createActiveObject(raw, readonlyHanlders)
 }
-export function isReactive(value:any){
+export function isReactive(value: any) {
     return !!value[ReactiveFlags.IS_REACTIVE]
 }
-export function isReadonly(value:any){
+export function isReadonly(value: any) {
     return !!value[ReactiveFlags.IS_READONLY]
+}
+export function shallowReadonly(raw) {
+    return createActiveObject(raw, shallowReadonlyHanlders)
+
+}
+export function isProxy(value){
+    return isReactive(value) || isReadonly(value)
 }
