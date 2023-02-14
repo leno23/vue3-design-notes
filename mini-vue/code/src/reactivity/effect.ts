@@ -2,13 +2,14 @@ import { extend } from '../shared'
 
 let activeEffect: any = null
 let shouldTrack = false
-class ReactiveEffect {
+export class ReactiveEffect {
     deps: any = []
     active = true
     onStop?: () => void
     private _fn: any
+    // 允许外界自定义副作用函数
     scheduler?: () => void
-    constructor(fn: any, scheduler: any) {
+    constructor(fn: any, scheduler?: any) {
         this._fn = fn
         this.scheduler = scheduler
     }
