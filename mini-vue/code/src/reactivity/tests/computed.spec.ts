@@ -34,11 +34,11 @@ describe('computed', () => {
         value.foo=2
         expect(getter).toHaveBeenCalledTimes(1)
 
-        // expect(cValue.value).toBe(2)
-        // expect(getter).not.toHaveBeenCalledTimes(2)
+        expect(cValue.value).toBe(2)
+        expect(getter).toHaveBeenCalledTimes(2)
 
-        // cValue.value
-        // expect(getter).toHaveBeenCalledTimes(2)
+        cValue.value
+        expect(getter).toHaveBeenCalledTimes(2)
 
     })
 })
