@@ -14,7 +14,7 @@ export const Foo = {
     render() {
         const btn = h('button', {
             onClick: this.emitAdd
-        }, 'emitAdd')
+        }, 'emitAddBtn')
         return h("div", {}, [btn])
     }
 }

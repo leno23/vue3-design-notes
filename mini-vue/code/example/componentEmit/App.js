@@ -8,13 +8,6 @@ export const App = {
             id: "root",
         },
             [
-                h("h4", {
-                    class: 'red',
-                    onClick() {
-                        alert('click');
-                    }
-                }, 'inner'),
-                h("h4", { class: 'blue' }, this.msg),
                 h(Foo, {
                     count: 123,
                     onTriggerAdd(...arg) {
