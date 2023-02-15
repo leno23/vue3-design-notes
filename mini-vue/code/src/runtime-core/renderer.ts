@@ -23,6 +23,7 @@ function processElement(vnode, container) {
 function mountElement(vnode, container) {
     const { type, props, children } = vnode
     const el = document.createElement(type)
+    vnode.el = el
 
     if (typeof children === 'string') {
         el.textContent = children
@@ -46,16 +47,18 @@ function processComponent(vnode, container) {
 }
 
 // 挂载组件
-function mountComponent(vnode, container) {
-    const instance = createComponentInstance(vnode)
+function mountComponent(initialVNode, container) {
+    const instance = createComponentInstance(initialVNode)
     setupComponent(instance)
 
-    setupRenderEffect(instance, container)
+    setupRenderEffect(instance, vnode, container)
 }
-function setupRenderEffect(instance, container) {
+function setupRenderEffect(instance, initialVNode, container) {
     // vnode
-    const subTree = instance.render()
+    const { proxy } = instance
+    const subTree = instance.render.call(proxy)
 
     patch(subTree, container)
-
+    // 深度优先遍历，此处会完成元素的挂载
+    initialVNode.el = subTree.el
 }

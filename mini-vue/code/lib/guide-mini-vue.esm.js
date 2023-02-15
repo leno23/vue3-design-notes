@@ -2,6 +2,22 @@ const isObject = (val) => {
     return val !== null && typeof val === 'object';
 };
 
+const publicPropertiesMap = {
+    $el: i => i.vnode.el
+};
+const PublicInstanceProxyHandlers = {
+    get({ _: instance }, key) {
+        const { setupState } = instance;
+        if (key in setupState) {
+            return setupState[key];
+        }
+        const publicGetter = publicPropertiesMap[key];
+        if (publicGetter) {
+            return publicGetter(instance);
+        }
+    }
+};
+
 function createComponentInstance(vnode) {
     const component = {
         vnode,
@@ -20,11 +36,13 @@ function setupComponent(instance) {
 // 初始化有状态的组件
 function setupStatefulComponent(instance) {
     // 获取到用户的配置
-    const Component = instance.vnode.type;
+    const { vnode } = instance;
+    const Component = vnode.type;
+    instance.proxy = new Proxy({ _: instance }, PublicInstanceProxyHandlers);
     const { setup } = Component;
     if (setup) {
         // 可以返回function作为render函数 或 object 作为组件状态
-        const setupResult = setup();
+        const setupResult = setup.call(instance.proxy);
         handleSetuoResult(instance, setupResult);
     }
 }
@@ -61,6 +79,7 @@ function processElement(vnode, container) {
 function mountElement(vnode, container) {
     const { type, props, children } = vnode;
     const el = document.createElement(type);
+    vnode.el = el;
     if (typeof children === 'string') {
         el.textContent = children;
     }
@@ -82,22 +101,26 @@ function processComponent(vnode, container) {
     mountComponent(vnode, container);
 }
 // 挂载组件
-function mountComponent(vnode, container) {
-    const instance = createComponentInstance(vnode);
+function mountComponent(initialVNode, container) {
+    const instance = createComponentInstance(initialVNode);
     setupComponent(instance);
-    setupRenderEffect(instance, container);
+    setupRenderEffect(instance, vnode, container);
 }
-function setupRenderEffect(instance, container) {
+function setupRenderEffect(instance, initialVNode, container) {
     // vnode
-    const subTree = instance.render();
+    const { proxy } = instance;
+    const subTree = instance.render.call(proxy);
     patch(subTree, container);
+    // 深度优先遍历，此处会完成元素的挂载
+    initialVNode.el = subTree.el;
 }
 
 function createVNode(type, props, children) {
     const vnode = {
         type,
         props,
-        children
+        children,
+        el: null
     };
     return vnode;
 }
