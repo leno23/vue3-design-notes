@@ -116,7 +116,8 @@ function initProps(instance, rawProps) {
 }
 
 const publicPropertiesMap = {
-    $el: i => i.vnode.el
+    $el: i => i.vnode.el,
+    $slots: i => i.slots,
 };
 const PublicInstanceProxyHandlers = {
     get({ _: instance }, key) {
@@ -134,13 +135,30 @@ const PublicInstanceProxyHandlers = {
     }
 };
 
+function initSlots(instance, children) {
+    const { vnode } = instance;
+    if (vnode.shapeFlag & 16 /* ShapeFlags.SLOT_CHILDREN */) {
+        normalizeObjectSlots(children, instance.slots);
+    }
+}
+function normalizeObjectSlots(children, slots) {
+    for (const key in children) {
+        const val = children[key];
+        slots[key] = (props) => normalizeSlotValue(val(props));
+    }
+}
+function normalizeSlotValue(value) {
+    return Array.isArray(value) ? value : [value];
+}
+
 function createComponentInstance(vnode) {
     const component = {
         vnode,
         type: vnode.type,
         setupState: {},
         props: {},
-        emit: () => { }
+        emit: () => { },
+        slots: {}
     };
     component.emit = emit.bind(null, component);
     return component;
@@ -148,7 +166,7 @@ function createComponentInstance(vnode) {
 // 初始化组件
 function setupComponent(instance) {
     initProps(instance, instance.vnode.props);
-    // initSlots
+    initSlots(instance, instance.vnode.children);
     // 
     // 初始化有状态的组件
     setupStatefulComponent(instance);
@@ -163,7 +181,8 @@ function setupStatefulComponent(instance) {
     if (setup) {
         // 可以返回function作为render函数 或 object 作为组件状态
         const setupResult = setup(shallowReadonly(instance.props), {
-            emit: instance.emit
+            emit: instance.emit,
+            slots: instance.slots
         });
         handleSetuoResult(instance, setupResult);
     }
@@ -261,6 +280,11 @@ function createVNode(type, props, children) {
     else if (Array.isArray(children)) {
         vnode.shapeFlag |= 8 /* ShapeFlags.ARRAY_CHILDREN */;
     }
+    if (vnode.shapeFlag & 2 /* ShapeFlags.STATEFUL_COMPONENT */) {
+        if (typeof children === 'object') {
+            vnode.shapeFlag |= 16 /* ShapeFlags.SLOT_CHILDREN */;
+        }
+    }
     return vnode;
 }
 function getShapeFlag(type) {
@@ -281,4 +305,11 @@ function h(type, props, children) {
     return createVNode(type, props, children);
 }
 
-export { createApp, h };
+function renderSlots(slots, name, props) {
+    const slot = slots[name];
+    if (slot && typeof slot === 'function') {
+        return h('div', {}, slot(props));
+    }
+}
+
+export { createApp, h, renderSlots };
