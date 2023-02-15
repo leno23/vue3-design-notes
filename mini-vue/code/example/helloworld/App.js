@@ -1,4 +1,5 @@
 import { h } from '../../lib/guide-mini-vue.esm.js'
+import { Foo } from './Foo.js';
 export const App = {
     // template
     render() {
@@ -14,7 +15,10 @@ export const App = {
                         alert('click');
                     }
                 }, 'inner'),
-                h("h4", { class: 'blue' }, this.msg)
+                h("h4", { class: 'blue' }, this.msg),
+                h(Foo, {
+                    count: 123
+                })
             ]
         )
     },

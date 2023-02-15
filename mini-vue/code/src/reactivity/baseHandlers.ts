@@ -44,7 +44,7 @@ export const mutableHanlders = {
 export const readonlyHanlders = {
     get: readOnlyGet,
     set(target: any, key: any, value: any) {
-        console.warn(`key:${key}不能被修改，因为他是readonly的`)
+        console.warn(`key:${key}不能被修改，因为target是readonly的`)
         return true
     }
 }

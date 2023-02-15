@@ -1,13 +1,111 @@
 'use strict';
 
+const extend = Object.assign;
+const isObject = (val) => {
+    return val !== null && typeof val === 'object';
+};
+function hasOwn(val, key) {
+    return Object.prototype.hasOwnProperty.call(val, key);
+}
+
+const targetMap = new Map();
+function trigger(target, key) {
+    let depsMap = targetMap.get(target);
+    let dep = depsMap.get(key);
+    triggerEffects(dep);
+}
+function triggerEffects(dep) {
+    for (const effect of dep) {
+        if (effect.scheduler) {
+            effect.scheduler();
+        }
+        else {
+            effect.run();
+        }
+    }
+}
+
+const get = createGetter();
+const set = createSetter();
+const readOnlyGet = createGetter(true);
+const shallowReadonlyGetter = createGetter(true, true);
+function createGetter(isReadonly = false, shallow = false) {
+    return function get(target, key, value) {
+        const res = Reflect.get(target, key);
+        if (key === ReactiveFlags.IS_REACTIVE) {
+            return !isReadonly;
+        }
+        else if (key === ReactiveFlags.IS_READONLY) {
+            return isReadonly;
+        }
+        if (shallow) {
+            return res;
+        }
+        if (isObject(res)) {
+            return isReadonly ? readonly(res) : reactive(res);
+        }
+        return res;
+    };
+}
+function createSetter(isReadonly = false) {
+    return function set(target, key, value) {
+        const res = Reflect.set(target, key, value);
+        trigger(target, key);
+        return res;
+    };
+}
+const mutableHanlders = {
+    get,
+    set,
+};
+const readonlyHanlders = {
+    get: readOnlyGet,
+    set(target, key, value) {
+        console.warn(`key:${key}不能被修改，因为target是readonly的`);
+        return true;
+    }
+};
+const shallowReadonlyHanlders = extend({}, readonlyHanlders, {
+    get: shallowReadonlyGetter
+});
+
+function createActiveObject(target, baseHandlers) {
+    if (!isObject(target)) {
+        console.warn(`target is-->${target},not a object`);
+        return target;
+    }
+    return new Proxy(target, baseHandlers);
+}
+var ReactiveFlags;
+(function (ReactiveFlags) {
+    ReactiveFlags["IS_REACTIVE"] = "__v_isReactive";
+    ReactiveFlags["IS_READONLY"] = "__v_isReadonly";
+})(ReactiveFlags || (ReactiveFlags = {}));
+function reactive(raw) {
+    return createActiveObject(raw, mutableHanlders);
+}
+function readonly(raw) {
+    return createActiveObject(raw, readonlyHanlders);
+}
+function shallowReadonly(raw) {
+    return createActiveObject(raw, shallowReadonlyHanlders);
+}
+
+function initProps(instance, rawProps) {
+    instance.props = rawProps || {};
+}
+
 const publicPropertiesMap = {
     $el: i => i.vnode.el
 };
 const PublicInstanceProxyHandlers = {
     get({ _: instance }, key) {
-        const { setupState } = instance;
-        if (key in setupState) {
+        const { setupState, props } = instance;
+        if (hasOwn(setupState, key)) {
             return setupState[key];
+        }
+        if (hasOwn(props, key)) {
+            return props[key];
         }
         const publicGetter = publicPropertiesMap[key];
         if (publicGetter) {
@@ -19,13 +117,15 @@ const PublicInstanceProxyHandlers = {
 function createComponentInstance(vnode) {
     const component = {
         vnode,
-        type: vnode.type
+        type: vnode.type,
+        setupState: {},
+        props: {}
     };
     return component;
 }
 // 初始化组件
 function setupComponent(instance) {
-    // initProps
+    initProps(instance, instance.vnode.props);
     // initSlots
     // 
     // 初始化有状态的组件
@@ -40,7 +140,7 @@ function setupStatefulComponent(instance) {
     const { setup } = Component;
     if (setup) {
         // 可以返回function作为render函数 或 object 作为组件状态
-        const setupResult = setup.call(instance.proxy);
+        const setupResult = setup(shallowReadonly(instance.props));
         handleSetuoResult(instance, setupResult);
     }
 }
@@ -63,7 +163,7 @@ function render(vnode, container) {
 }
 function patch(vnode, container) {
     // 处理不同类型的元素
-    console.log(vnode);
+    // console.log(vnode);
     const { shapeFlag } = vnode;
     if (shapeFlag & 1 /* ShapeFlags.ELEMENT */) {
         processElement(vnode, container);
@@ -75,6 +175,7 @@ function patch(vnode, container) {
 function processElement(vnode, container) {
     mountElement(vnode, container);
 }
+// 挂载Element类型元素
 function mountElement(vnode, container) {
     const { type, props, children } = vnode;
     const el = document.createElement(type);

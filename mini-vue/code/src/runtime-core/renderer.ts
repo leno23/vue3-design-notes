@@ -2,14 +2,14 @@ import { ShapeFlags } from '../shared/shapeFlags';
 import { createComponentInstance, setupComponent } from './component'
 import { VNode } from './vnode';
 
-export function render(vnode, container) {
+export function render(vnode:VNode, container:any) {
     patch(vnode, container)
 }
 
-function patch(vnode: VNode, container) {
+function patch(vnode: VNode, container:any) {
 
     // 处理不同类型的元素
-    console.log(vnode);
+    // console.log(vnode);
     const { shapeFlag } = vnode
     if (shapeFlag & ShapeFlags.ELEMENT) {
         processElement(vnode, container)
@@ -18,11 +18,12 @@ function patch(vnode: VNode, container) {
     }
 }
 
-function processElement(vnode: VNode, container) {
+function processElement(vnode: VNode, container:any) {
     mountElement(vnode, container)
 }
 
-function mountElement(vnode: VNode, container) {
+// 挂载Element类型元素
+function mountElement(vnode: VNode, container:any) {
     const { type, props, children } = vnode
     const el = document.createElement(type)
     vnode.el = el
@@ -43,25 +44,25 @@ function mountElement(vnode: VNode, container) {
     }
     container.appendChild(el)
 }
-function mountChildren(vnode: VNode, container) {
+function mountChildren(vnode: VNode, container:any) {
     vnode.children.forEach(child => {
         patch(child, container)
     })
 
 }
 // 处理组件类型
-function processComponent(vnode: VNode, container) {
+function processComponent(vnode: VNode, container:any) {
     mountComponent(vnode, container)
 }
 
 // 挂载组件
-function mountComponent(initialVNode: VNode, container) {
+function mountComponent(initialVNode: VNode, container:any) {
     const instance = createComponentInstance(initialVNode)
     setupComponent(instance)
 
     setupRenderEffect(instance, initialVNode, container)
 }
-function setupRenderEffect(instance, initialVNode: VNode, container) {
+function setupRenderEffect(instance:any, initialVNode: VNode, container:any) {
     // vnode
     const { proxy } = instance
     const subTree = instance.render.call(proxy)
