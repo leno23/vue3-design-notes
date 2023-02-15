@@ -7,6 +7,16 @@ const isObject = (val) => {
 function hasOwn(val, key) {
     return Object.prototype.hasOwnProperty.call(val, key);
 }
+// 烤串命名转驼峰命名
+function camelize(str) {
+    return str.replace(/-(\w)/g, (_, c) => {
+        return c ? c.toUpperCase() : '';
+    });
+}
+// 首字母大写
+function capitalize(str) {
+    return str[0].toUpperCase() + str.slice(1);
+}
 
 const targetMap = new Map();
 function trigger(target, key) {
@@ -91,6 +101,18 @@ function shallowReadonly(raw) {
     return createActiveObject(raw, shallowReadonlyHanlders);
 }
 
+function emit(instance, event, ...args) {
+    console.log('emit', event);
+    const { props } = instance;
+    // eventKey转换成事件名
+    const toHandlerKey = (str) => {
+        return str ? 'on' + capitalize(camelize(str)) : '';
+    };
+    const handlerName = toHandlerKey(event);
+    const handler = props[handlerName];
+    handler && handler(...args);
+}
+
 function initProps(instance, rawProps) {
     instance.props = rawProps || {};
 }
@@ -119,8 +141,10 @@ function createComponentInstance(vnode) {
         vnode,
         type: vnode.type,
         setupState: {},
-        props: {}
+        props: {},
+        emit: () => { }
     };
+    component.emit = emit.bind(null, component);
     return component;
 }
 // 初始化组件
@@ -140,7 +164,9 @@ function setupStatefulComponent(instance) {
     const { setup } = Component;
     if (setup) {
         // 可以返回function作为render函数 或 object 作为组件状态
-        const setupResult = setup(shallowReadonly(instance.props));
+        const setupResult = setup(shallowReadonly(instance.props), {
+            emit: instance.emit
+        });
         handleSetuoResult(instance, setupResult);
     }
 }

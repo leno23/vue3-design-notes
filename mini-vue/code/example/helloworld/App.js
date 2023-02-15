@@ -17,7 +17,10 @@ export const App = {
                 }, 'inner'),
                 h("h4", { class: 'blue' }, this.msg),
                 h(Foo, {
-                    count: 123
+                    count: 123,
+                    onTriggerAdd(...arg) {
+                        console.log('onAdd', arg);
+                    }
                 })
             ]
         )
