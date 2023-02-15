@@ -1,7 +1,3 @@
-const isObject = (val) => {
-    return val !== null && typeof val === 'object';
-};
-
 const publicPropertiesMap = {
     $el: i => i.vnode.el
 };
@@ -66,10 +62,11 @@ function render(vnode, container) {
 function patch(vnode, container) {
     // 处理不同类型的元素
     console.log(vnode);
-    if (typeof vnode.type === 'string') {
+    const { shapeFlag } = vnode;
+    if (shapeFlag & 1 /* ShapeFlags.ELEMENT */) {
         processElement(vnode, container);
     }
-    else if (isObject(vnode.type)) {
+    else if (shapeFlag & 2 /* ShapeFlags.STATEFUL_COMPONENT */) {
         processComponent(vnode, container);
     }
 }
@@ -80,10 +77,11 @@ function mountElement(vnode, container) {
     const { type, props, children } = vnode;
     const el = document.createElement(type);
     vnode.el = el;
-    if (typeof children === 'string') {
+    const { shapeFlag } = vnode;
+    if (shapeFlag & 4 /* ShapeFlags.TEXT_CHILDREN */) {
         el.textContent = children;
     }
-    else if (Array.isArray(children)) {
+    else if (shapeFlag & 8 /* ShapeFlags.ARRAY_CHILDREN */) {
         mountChildren(vnode, el);
     }
     for (const key in props) {
@@ -104,7 +102,7 @@ function processComponent(vnode, container) {
 function mountComponent(initialVNode, container) {
     const instance = createComponentInstance(initialVNode);
     setupComponent(instance);
-    setupRenderEffect(instance, vnode, container);
+    setupRenderEffect(instance, initialVNode, container);
 }
 function setupRenderEffect(instance, initialVNode, container) {
     // vnode
@@ -120,9 +118,20 @@ function createVNode(type, props, children) {
         type,
         props,
         children,
+        shapeFlag: getShapeFlag(type),
         el: null
     };
+    if (typeof children === 'string') {
+        vnode.shapeFlag |= 4 /* ShapeFlags.TEXT_CHILDREN */;
+    }
+    else if (Array.isArray(children)) {
+        vnode.shapeFlag |= 8 /* ShapeFlags.ARRAY_CHILDREN */;
+    }
     return vnode;
+}
+function getShapeFlag(type) {
+    return typeof type === 'string' ?
+        1 /* ShapeFlags.ELEMENT */ : 2 /* ShapeFlags.STATEFUL_COMPONENT */;
 }
 
 function createApp(rootComponent) {
