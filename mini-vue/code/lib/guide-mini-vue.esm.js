@@ -84,8 +84,15 @@ function mountElement(vnode, container) {
     else if (shapeFlag & 8 /* ShapeFlags.ARRAY_CHILDREN */) {
         mountChildren(vnode, el);
     }
+    const isOn = (v) => /^on[A-Z]/.test(v);
     for (const key in props) {
-        el.setAttribute(key, props[key]);
+        const val = props[key];
+        if (isOn(key)) {
+            el.addEventListener(key.slice(2).toLowerCase(), val);
+        }
+        else {
+            el.setAttribute(key, val);
+        }
     }
     container.appendChild(el);
 }

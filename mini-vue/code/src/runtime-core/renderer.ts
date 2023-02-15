@@ -6,11 +6,11 @@ export function render(vnode, container) {
     patch(vnode, container)
 }
 
-function patch(vnode:VNode, container) {
+function patch(vnode: VNode, container) {
 
     // 处理不同类型的元素
     console.log(vnode);
-    const {shapeFlag} = vnode
+    const { shapeFlag } = vnode
     if (shapeFlag & ShapeFlags.ELEMENT) {
         processElement(vnode, container)
     } else if (shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
@@ -18,44 +18,50 @@ function patch(vnode:VNode, container) {
     }
 }
 
-function processElement(vnode:VNode, container) {
+function processElement(vnode: VNode, container) {
     mountElement(vnode, container)
 }
 
-function mountElement(vnode:VNode, container) {
+function mountElement(vnode: VNode, container) {
     const { type, props, children } = vnode
     const el = document.createElement(type)
     vnode.el = el
-    const {shapeFlag} = vnode
+    const { shapeFlag } = vnode
     if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
         el.textContent = children
     } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
         mountChildren(vnode, el)
     }
+    const isOn = (v:string) => /^on[A-Z]/.test(v)
     for (const key in props) {
-        el.setAttribute(key, props[key])
+        const val = props[key]
+        if (isOn(key)) {
+            el.addEventListener(key.slice(2).toLowerCase(), val)
+        } else {
+            el.setAttribute(key, val)
+        }
     }
     container.appendChild(el)
 }
-function mountChildren(vnode:VNode, container) {
+function mountChildren(vnode: VNode, container) {
     vnode.children.forEach(child => {
         patch(child, container)
     })
 
 }
 // 处理组件类型
-function processComponent(vnode:VNode, container) {
+function processComponent(vnode: VNode, container) {
     mountComponent(vnode, container)
 }
 
 // 挂载组件
-function mountComponent(initialVNode:VNode, container) {
+function mountComponent(initialVNode: VNode, container) {
     const instance = createComponentInstance(initialVNode)
     setupComponent(instance)
 
     setupRenderEffect(instance, initialVNode, container)
 }
-function setupRenderEffect(instance, initialVNode:VNode, container) {
+function setupRenderEffect(instance, initialVNode: VNode, container) {
     // vnode
     const { proxy } = instance
     const subTree = instance.render.call(proxy)

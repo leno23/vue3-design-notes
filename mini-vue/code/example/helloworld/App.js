@@ -8,7 +8,12 @@ export const App = {
             // class: ["red"]
         },
             [
-                h("h4", { class: 'red' }, 'inner'),
+                h("h4", {
+                    class: 'red',
+                    onClick() {
+                        alert('click');
+                    }
+                }, 'inner'),
                 h("h4", { class: 'blue' }, this.msg)
             ]
         )
