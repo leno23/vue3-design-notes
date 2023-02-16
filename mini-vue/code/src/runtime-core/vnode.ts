@@ -1,13 +1,16 @@
 import { ShapeFlags } from '../shared/shapeFlags'
-export interface VNode{
-    type:any
-    props:any
-    children:VNode[]
+export interface VNode {
+    type: any
+    props: any
+    children: VNode[]
     shapeFlag: number
     el: HTMLElement | null
 }
+export const Fragment = Symbol("Fragment")
 
-export function createVNode(type:any, props?:any, children?:any): VNode {
+export const Text = Symbol("Text")
+
+export function createVNode(type: any, props?: any, children?: any): VNode {
     const vnode = {
         type,
         props,
@@ -15,21 +18,25 @@ export function createVNode(type:any, props?:any, children?:any): VNode {
         shapeFlag: getShapeFlag(type),
         el: null
     }
-    if(typeof children === 'string'){
+    if (typeof children === 'string') {
         vnode.shapeFlag |= ShapeFlags.TEXT_CHILDREN
-    }else if(Array.isArray(children)){
+    } else if (Array.isArray(children)) {
         vnode.shapeFlag |= ShapeFlags.ARRAY_CHILDREN
     }
 
-    if(vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT){
-        if(typeof children === 'object'){
+    if (vnode.shapeFlag & ShapeFlags.STATEFUL_COMPONENT) {
+        if (typeof children === 'object') {
             vnode.shapeFlag |= ShapeFlags.SLOT_CHILDREN
         }
     }
     return vnode
 }
 
-function getShapeFlag(type:any) {
+export function createTextVNode(text) {
+    return createVNode(Text, {}, text)
+
+}
+function getShapeFlag(type: any) {
     return typeof type === 'string' ?
-    ShapeFlags.ELEMENT : ShapeFlags.STATEFUL_COMPONENT
+        ShapeFlags.ELEMENT : ShapeFlags.STATEFUL_COMPONENT
 }
