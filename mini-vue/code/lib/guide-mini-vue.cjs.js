@@ -181,11 +181,13 @@ function setupStatefulComponent(instance) {
     instance.proxy = new Proxy({ _: instance }, PublicInstanceProxyHandlers);
     const { setup } = Component;
     if (setup) {
+        setCurrentInstance(instance);
         // 可以返回function作为render函数 或 object 作为组件状态
         const setupResult = setup(shallowReadonly(instance.props), {
             emit: instance.emit,
             slots: instance.slots
         });
+        setCurrentInstance(null);
         handleSetuoResult(instance, setupResult);
     }
 }
@@ -201,6 +203,14 @@ function handleSetuoResult(instance, setupResult) {
 function finishComponentSetup(instance) {
     const component = instance.type;
     instance.render = component.render;
+}
+let currentInstance = null;
+function getCurrentInstance() {
+    return currentInstance;
+}
+// 设置currentInstance独立成一个方法，将来的问题追溯会更方便
+function setCurrentInstance(instance) {
+    currentInstance = instance;
 }
 
 const Fragment = Symbol("Fragment");
@@ -342,7 +352,11 @@ function renderSlots(slots, name, props) {
 exports.Fragment = Fragment;
 exports.Text = Text;
 exports.createApp = createApp;
+exports.createComponentInstance = createComponentInstance;
 exports.createTextVNode = createTextVNode;
 exports.createVNode = createVNode;
+exports.getCurrentInstance = getCurrentInstance;
 exports.h = h;
 exports.renderSlots = renderSlots;
+exports.setCurrentInstance = setCurrentInstance;
+exports.setupComponent = setupComponent;
