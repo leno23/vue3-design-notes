@@ -2,7 +2,7 @@ import { ShapeFlags } from '../shared/shapeFlags'
 export interface VNode {
     type: any
     props: any
-    children: VNode[]
+    children: VNode[] | string
     shapeFlag: number
     el: HTMLElement | null
 }

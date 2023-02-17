@@ -153,12 +153,14 @@ function normalizeSlotValue(value) {
     return Array.isArray(value) ? value : [value];
 }
 
-function createComponentInstance(vnode) {
+function createComponentInstance(vnode, parent) {
     const component = {
         vnode,
         type: vnode.type,
         setupState: {},
         props: {},
+        parent,
+        providers: parent ? parent.providers : {},
         emit: () => { },
         slots: {}
     };
@@ -244,33 +246,33 @@ function getShapeFlag(type) {
         1 /* ShapeFlags.ELEMENT */ : 2 /* ShapeFlags.STATEFUL_COMPONENT */;
 }
 
-function render(vnode, container) {
-    patch(vnode, container);
+function render(vnode, container, parentComponent) {
+    patch(vnode, container, parentComponent);
 }
-function patch(vnode, container) {
+function patch(vnode, container, parentComponent) {
     // 处理不同类型的元素
     // console.log(vnode);
     const { shapeFlag, type } = vnode;
     // Fragment ->只渲染children
     switch (type) {
         case Fragment:
-            processFragment(vnode, container);
+            processFragment(vnode, container, parentComponent);
             break;
         case Text:
             processText(vnode, container);
             break;
         default:
             if (shapeFlag & 1 /* ShapeFlags.ELEMENT */) {
-                processElement(vnode, container);
+                processElement(vnode, container, parentComponent);
             }
             else if (shapeFlag & 2 /* ShapeFlags.STATEFUL_COMPONENT */) {
-                processComponent(vnode, container);
+                processComponent(vnode, container, parentComponent);
             }
             break;
     }
 }
-function processFragment(vnode, container) {
-    mountChildren(vnode, container);
+function processFragment(vnode, container, parentComponent) {
+    mountChildren(vnode, container, parentComponent);
 }
 function processText(vnode, container) {
     const { children } = vnode;
@@ -278,11 +280,11 @@ function processText(vnode, container) {
     vnode.el = el;
     container.appendChild(el);
 }
-function processElement(vnode, container) {
-    mountElement(vnode, container);
+function processElement(vnode, container, parentComponent) {
+    mountElement(vnode, container, parentComponent);
 }
 // 挂载Element类型元素
-function mountElement(vnode, container) {
+function mountElement(vnode, container, parentComponent) {
     const { type, props, children } = vnode;
     const el = document.createElement(type);
     vnode.el = el;
@@ -291,7 +293,7 @@ function mountElement(vnode, container) {
         el.textContent = children;
     }
     else if (shapeFlag & 8 /* ShapeFlags.ARRAY_CHILDREN */) {
-        mountChildren(vnode, el);
+        mountChildren(vnode, el, parentComponent);
     }
     const isOn = (v) => /^on[A-Z]/.test(v);
     for (const key in props) {
@@ -305,18 +307,18 @@ function mountElement(vnode, container) {
     }
     container.appendChild(el);
 }
-function mountChildren(vnode, container) {
+function mountChildren(vnode, container, parentComponent) {
     vnode.children.forEach(child => {
-        patch(child, container);
+        patch(child, container, parentComponent);
     });
 }
 // 处理组件类型
-function processComponent(vnode, container) {
-    mountComponent(vnode, container);
+function processComponent(vnode, container, parentComponent) {
+    mountComponent(vnode, container, parentComponent);
 }
 // 挂载组件
-function mountComponent(initialVNode, container) {
-    const instance = createComponentInstance(initialVNode);
+function mountComponent(initialVNode, container, parentComponent) {
+    const instance = createComponentInstance(initialVNode, parentComponent);
     setupComponent(instance);
     setupRenderEffect(instance, initialVNode, container);
 }
@@ -324,7 +326,7 @@ function setupRenderEffect(instance, initialVNode, container) {
     // vnode
     const { proxy } = instance;
     const subTree = instance.render.call(proxy);
-    patch(subTree, container);
+    patch(subTree, container, instance);
     // 深度优先遍历，此处会完成元素的挂载
     initialVNode.el = subTree.el;
 }
@@ -349,6 +351,35 @@ function renderSlots(slots, name, props) {
     }
 }
 
+function provide(key, value) {
+    const ins = getCurrentInstance();
+    if (ins) {
+        let { providers } = ins;
+        const parentProviders = ins.parent.providers;
+        if (providers == parentProviders) {
+            providers = ins.providers = Object.create(parentProviders);
+        }
+        providers[key] = value;
+    }
+}
+function inject(key, defaultValue) {
+    const ins = getCurrentInstance();
+    if (ins) {
+        if (ins) {
+            const parentProviders = ins.parent.providers;
+            if (key in parentProviders) {
+                return parentProviders[key];
+            }
+            else if (defaultValue) {
+                if (typeof defaultValue === 'function') {
+                    return defaultValue();
+                }
+                return defaultValue;
+            }
+        }
+    }
+}
+
 exports.Fragment = Fragment;
 exports.Text = Text;
 exports.createApp = createApp;
@@ -357,6 +388,8 @@ exports.createTextVNode = createTextVNode;
 exports.createVNode = createVNode;
 exports.getCurrentInstance = getCurrentInstance;
 exports.h = h;
+exports.inject = inject;
+exports.provide = provide;
 exports.renderSlots = renderSlots;
 exports.setCurrentInstance = setCurrentInstance;
 exports.setupComponent = setupComponent;

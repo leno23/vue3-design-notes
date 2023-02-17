@@ -4,14 +4,16 @@ import { initProps } from './componentProps'
 import { PublicInstanceProxyHandlers } from './componentPublicInstance'
 import { initSlots } from './componentsSlots'
 
-export function createComponentInstance(vnode) {
+export function createComponentInstance(vnode, parent) {
     const component: any = {
         vnode,
         type: vnode.type,
         setupState: {},
         props: {},
+        parent,
+        providers: parent ? parent.providers : {},
         emit: () => { },
-        slots:{}
+        slots: {}
     }
     component.emit = emit.bind(null, component)
     return component
@@ -62,12 +64,12 @@ function finishComponentSetup(instance) {
     instance.render = component.render
 
 }
-let currentInstance:any = null
+let currentInstance: any = null
 
-export function getCurrentInstance () {
+export function getCurrentInstance() {
     return currentInstance
 }
 // 设置currentInstance独立成一个方法，将来的问题追溯会更方便
-export function setCurrentInstance (instance) {
+export function setCurrentInstance(instance) {
     currentInstance = instance
 }
