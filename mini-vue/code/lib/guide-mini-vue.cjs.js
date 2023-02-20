@@ -365,17 +365,15 @@ function provide(key, value) {
 function inject(key, defaultValue) {
     const ins = getCurrentInstance();
     if (ins) {
-        if (ins) {
-            const parentProviders = ins.parent.providers;
-            if (key in parentProviders) {
-                return parentProviders[key];
+        const parentProviders = ins.parent.providers;
+        if (key in parentProviders) {
+            return parentProviders[key];
+        }
+        else if (defaultValue) {
+            if (typeof defaultValue === 'function') {
+                return defaultValue();
             }
-            else if (defaultValue) {
-                if (typeof defaultValue === 'function') {
-                    return defaultValue();
-                }
-                return defaultValue;
-            }
+            return defaultValue;
         }
     }
 }

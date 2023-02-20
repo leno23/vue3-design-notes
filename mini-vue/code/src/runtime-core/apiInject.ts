@@ -15,16 +15,14 @@ export function provide(key: string, value) {
 export function inject(key: string, defaultValue: any) {
     const ins = getCurrentInstance()
     if (ins) {
-        if (ins) {
-            const parentProviders = ins.parent.providers
-            if (key in parentProviders) {
-                return parentProviders[key]
-            } else if (defaultValue) {
-                if (typeof defaultValue === 'function') {
-                    return defaultValue()
-                }
-                return defaultValue
+        const parentProviders = ins.parent.providers
+        if (key in parentProviders) {
+            return parentProviders[key]
+        } else if (defaultValue) {
+            if (typeof defaultValue === 'function') {
+                return defaultValue()
             }
+            return defaultValue
         }
     }
 }
