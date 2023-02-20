@@ -3,8 +3,9 @@ import { emit } from './componentEmit'
 import { initProps } from './componentProps'
 import { PublicInstanceProxyHandlers } from './componentPublicInstance'
 import { initSlots } from './componentsSlots'
+import { VNode } from './vnode'
 
-export function createComponentInstance(vnode, parent) {
+export function createComponentInstance(vnode:VNode, parent) {
     const component: any = {
         vnode,
         type: vnode.type,
