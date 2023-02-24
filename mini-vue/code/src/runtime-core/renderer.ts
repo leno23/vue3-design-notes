@@ -3,6 +3,7 @@ import { createComponentInstance, setupComponent } from './component'
 import { Fragment, Text, VNode } from './vnode';
 import { createAppAPI } from './createApp';
 import { effect } from '../reactivity/effect';
+import { EMPTY_OBJ } from '../shared';
 
 export function createRenderer(options) {
     const {
@@ -59,7 +60,39 @@ export function createRenderer(options) {
 
     function patchElement(n1: VNode, n2: VNode, container) {
         console.log(n1, n2);
+        const oldProps = n1.props || EMPTY_OBJ
+        const newProps = n2.props || EMPTY_OBJ
 
+        const el = n1.el
+        n2.el = n1.el
+        patchProps(el, oldProps, newProps)
+
+    }
+
+    // 对比新老Prop，处理一下四种情况
+    // 1.props 没有发生变化
+    // 2.某些属性值发生变化
+    // 3.删除某些属性
+    // 4.新增新的属性
+    function patchProps(el, oldProps: any, newProps: any) {
+        if (oldProps === newProps) return
+        // 老的属性的值发生变更
+        for (const key in newProps) {
+            const preProp = oldProps[key]
+            const nextProp = newProps[key]
+
+            if (preProp !== nextProp) {
+                hostPatchProp(el, key, preProp, nextProp)
+            }
+        }
+
+        // 老的属性发生了移除，如果老的props是空的，就没有必要进行属性移除判断了
+        if (oldProps === EMPTY_OBJ) return
+        for (const key in oldProps) {
+            if (!(key in newProps)) {
+                hostPatchProp(el, key, oldProps[key], null)
+            }
+        }
     }
 
     // 挂载Element类型元素
@@ -75,7 +108,7 @@ export function createRenderer(options) {
         }
         for (const key in props) {
             const val = props[key]
-            hostPatchProp(el, key, val)
+            hostPatchProp(el, key, null, val)
         }
         hostInsert(el, container)
         // container.appendChild(el)
@@ -88,7 +121,7 @@ export function createRenderer(options) {
     }
     // 处理组件类型
     function processComponent(n1: VNode, n2: VNode, container: any, parentComponent: any) {
-        mountComponent(n1,n2, container, parentComponent)
+        mountComponent(n1, n2, container, parentComponent)
     }
 
     // 挂载组件
@@ -120,7 +153,7 @@ export function createRenderer(options) {
                 instance.subTree = subTree
                 // console.log(pre, subTree);
                 console.log('update');
-                patch(preSubTree,subTree,container,instance)
+                patch(preSubTree, subTree, container, instance)
 
             }
         })

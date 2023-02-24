@@ -3,12 +3,16 @@ function createElement(type) {
     return document.createElement(type);
 }
 
-function patchProp(el, key, val) {
+function patchProp(el, key, preVal, nextVal) {
     const isOn = (v: string) => /^on[A-Z]/.test(v)
     if (isOn(key)) {
-        el.addEventListener(key.slice(2).toLowerCase(), val)
+        el.addEventListener(key.slice(2).toLowerCase(), nextVal)
     } else {
-        el.setAttribute(key, val)
+        if(nextVal==undefined || nextVal===null) {
+            el.removeAttribute(key)
+        }else{
+            el.setAttribute(key, nextVal)
+        }
     }
 }
 
@@ -22,7 +26,7 @@ export const render: any = createRenderer({
     insert
 })
 
-export function createApp(...args:any[]) {
+export function createApp(...args: any[]) {
     return render.createApp(...args)
 }
 
