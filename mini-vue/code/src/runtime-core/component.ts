@@ -1,3 +1,4 @@
+import { proxyRefs } from '../reactivity'
 import { shallowReadonly } from '../reactivity/reactive'
 import { emit } from './componentEmit'
 import { initProps } from './componentProps'
@@ -14,6 +15,9 @@ export function createComponentInstance(vnode:VNode, parent) {
         parent,
         providers: parent ? parent.providers : {},
         emit: () => { },
+        // 组件示例对应的
+        subTree:null,
+        isMounted:false,
         slots: {}
     }
     component.emit = emit.bind(null, component)
@@ -53,7 +57,7 @@ function setupStatefulComponent(instance) {
 function handleSetuoResult(instance, setupResult) {
     if (typeof setupResult === 'object') {
         // 组件状态保存在setupState属性上
-        instance.setupState = setupResult
+        instance.setupState = proxyRefs(setupResult)
     }
 
     finishComponentSetup(instance)

@@ -1,6 +1,5 @@
-import pkg from './package.json
-'
 import typescript from "@rollup/plugin-typescript";
+import pkg from './package.json'
 export default {
     input: './src/index.ts',
     output: [
@@ -13,5 +12,7 @@ export default {
             file: pkg.module
         }
     ],
-    plugins: [typescript()]
+    plugins: [
+        typescript({})
+    ]
 }

@@ -3,7 +3,7 @@ function createElement(type) {
     return document.createElement(type);
 }
 
-function patchProps(el, key, val) {
+function patchProp(el, key, val) {
     const isOn = (v: string) => /^on[A-Z]/.test(v)
     if (isOn(key)) {
         el.addEventListener(key.slice(2).toLowerCase(), val)
@@ -18,7 +18,7 @@ function insert(el, parent) {
 
 export const render: any = createRenderer({
     createElement,
-    patchProps,
+    patchProp,
     insert
 })
 
