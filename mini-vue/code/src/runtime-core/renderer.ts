@@ -9,7 +9,8 @@ export function createRenderer(options) {
     const {
         createElement: hostCrateElement,
         patchProp: hostPatchProp,
-        insert: hostInsert
+        insert: hostInsert,
+        remove:hostRemove
     } = options
 
     function render(vnode: VNode, container: any, parentComponent: any) {
@@ -65,9 +66,27 @@ export function createRenderer(options) {
 
         const el = n1.el
         n2.el = n1.el
+        patchChildren(n1, n2)
         patchProps(el, oldProps, newProps)
 
     }
+    function patchChildren(n1, n2) {
+        const preShapeFlag = n1.shapeFlag
+        const shapeFlag = n2.shapeFlag
+
+        if (shapeFlag & ShapeFlags.TEXT_CHILDREN){
+            if(preShapeFlag & ShapeFlags.ARRAY_CHILDREN){
+                unmountChildren(n1.children)
+            }
+        }
+    }
+    function unmountChildren (children) {
+        for(const child of children){
+            let el = child.el
+            hostRemove(child)
+        }
+    }
+
 
     // 对比新老Prop，处理一下四种情况
     // 1.props 没有发生变化

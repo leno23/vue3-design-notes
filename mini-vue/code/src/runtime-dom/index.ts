@@ -8,9 +8,9 @@ function patchProp(el, key, preVal, nextVal) {
     if (isOn(key)) {
         el.addEventListener(key.slice(2).toLowerCase(), nextVal)
     } else {
-        if(nextVal==undefined || nextVal===null) {
+        if (nextVal == undefined || nextVal === null) {
             el.removeAttribute(key)
-        }else{
+        } else {
             el.setAttribute(key, nextVal)
         }
     }
@@ -19,11 +19,18 @@ function patchProp(el, key, preVal, nextVal) {
 function insert(el, parent) {
     parent.appendChild(el)
 }
+function remove(child) {
+    let parent = child.parentNode
+    if (parent) {
+        parent.removeChild(child)
+    }
+}
 
 export const render: any = createRenderer({
     createElement,
     patchProp,
-    insert
+    insert,
+    remove
 })
 
 export function createApp(...args: any[]) {
