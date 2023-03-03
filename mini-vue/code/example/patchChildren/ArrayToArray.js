@@ -93,11 +93,59 @@ a b (c d e) f g
 a b (d c) f g
 
 */
+// const prev = [
+//     h('div', { key: 'A' }, 'A'),
+//     h('div', { key: 'B' }, 'B'),
+//     h('div', { key: 'C', id: 'c-prev' }, 'C'),
+//     h('div', { key: 'D' }, 'D'),
+//     h('div', { key: 'E' }, 'E'),
+//     h('div', { key: 'F' }, 'F'),
+//     h('div', { key: 'G' }, 'G'),
+// ]
+// const next = [
+//     h('div', { key: 'A' }, 'A'),
+//     h('div', { key: 'B' }, 'B'),
+//     h('div', { key: 'D' }, 'D'),
+//     h('div', { key: 'C', id: 'c-next' }, 'C'),
+//     h('div', { key: 'F' }, 'F'),
+//     h('div', { key: 'G' }, 'G'),
+// ]
+
+/*
+5.中间部分需要移动
+
+a b (c d e) f g
+a b (e c d) f g
+*/
+
+// const prev = [
+//     h('div', { key: 'A' }, 'A'),
+//     h('div', { key: 'B' }, 'B'),
+//     h('div', { key: 'C', id: 'c-prev' }, 'C'),
+//     h('div', { key: 'D' }, 'D'),
+//     h('div', { key: 'E' }, 'E'),
+//     h('div', { key: 'F' }, 'F'),
+//     h('div', { key: 'G' }, 'G'),
+// ]
+// const next = [
+//     h('div', { key: 'A' }, 'A'),
+//     h('div', { key: 'B' }, 'B'),
+//     h('div', { key: 'E' }, 'E'),
+//     h('div', { key: 'C', id: 'c-next' }, 'C'),
+//     h('div', { key: 'D' }, 'D'),
+//     h('div', { key: 'F' }, 'F'),
+//     h('div', { key: 'G' }, 'G'),
+// ]
+/*
+5.中间部分需要 创建
+
+a b (c e) f g
+a b (e c d) f g
+*/
 const prev = [
     h('div', { key: 'A' }, 'A'),
     h('div', { key: 'B' }, 'B'),
     h('div', { key: 'C', id: 'c-prev' }, 'C'),
-    h('div', { key: 'D' }, 'D'),
     h('div', { key: 'E' }, 'E'),
     h('div', { key: 'F' }, 'F'),
     h('div', { key: 'G' }, 'G'),
@@ -105,11 +153,13 @@ const prev = [
 const next = [
     h('div', { key: 'A' }, 'A'),
     h('div', { key: 'B' }, 'B'),
-    h('div', { key: 'D' }, 'D'),
+    h('div', { key: 'E' }, 'E'),
     h('div', { key: 'C', id: 'c-next' }, 'C'),
+    h('div', { key: 'D' }, 'D'),
     h('div', { key: 'F' }, 'F'),
     h('div', { key: 'G' }, 'G'),
 ]
+
 export default {
     name: 'ArrayToArray',
     setup() {
