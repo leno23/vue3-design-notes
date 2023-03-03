@@ -176,6 +176,48 @@ export function createRenderer(options: any) {
                 hostRemove(c1[i].el)
                 i++
             }
+        } else {
+            // 中间对比
+            let s1 = i
+            let s2 = i
+            // 新节点总数量
+            const toBePatched = e2 - s2 + 1
+            // 已经处理的数量
+            let patched = 0
+            const keyToNewIndexMap = new Map()
+
+            for (let i = s2; i <= e2; i++) {
+                const nextChild = c2[i]
+                keyToNewIndexMap.set(nextChild.key, i)
+            }
+            for (let i = s1; i <= e1; i++) {
+                const preChild = c1[i]
+                // 如果已经处理的数量 >= 新节点的数量，那么剩余的节点都是要删除的
+                if (patched >= toBePatched) {
+                    hostRemove(preChild.el)
+                    continue
+                }
+                let newIndex
+                if (preChild.key !== null) {
+                    newIndex = keyToNewIndexMap.get(preChild.key)
+                } else {
+                    // 没有设置key的话，在新的s2 children逐个对比，查看有无相同的节点
+                    for (let j = s2; j <= e2; j++) {
+                        if (isSameVNodeType(preChild, c2[j])) {
+                            newIndex = j
+                            break
+                        }
+                    }
+                }
+                // 老节点i在新的children中没有找到，直接删除
+                if (newIndex === undefined) {
+                    hostRemove(preChild.el)
+                } else {
+                    patch(preChild, c2[newIndex], container, parentComponent, null)
+                    patched++
+                }
+
+            }
         }
     }
 

@@ -37,16 +37,16 @@ import { h, ref } from '../../lib/guide-mini-vue.esm.js';
 (a b)
 (a b) c
 */
-const prev = [
-    h('div', {key:'A'}, 'A'), 
-    h('div', {key:'B'}, 'B'), 
-]
-const next = [
-    h('div', {key:'D'}, 'D'), 
-    h('div', {key:'C'}, 'C'), 
-    h('div', {key:'A'}, 'A'), 
-    h('div', {key:'B'}, 'B'), 
-]
+// const prev = [
+//     h('div', {key:'A'}, 'A'), 
+//     h('div', {key:'B'}, 'B'), 
+// ]
+// const next = [
+//     h('div', {key:'D'}, 'D'), 
+//     h('div', {key:'C'}, 'C'), 
+//     h('div', {key:'A'}, 'A'), 
+//     h('div', {key:'B'}, 'B'), 
+// ]
 
 /*
 3.新的比老的少，需要删除
@@ -57,11 +57,59 @@ const next = [
 //     h('div', {key:'A'}, 'A'), 
 //     h('div', {key:'B'}, 'B'), 
 //     h('div', {key:'C'}, 'C'), 
+//     h('div', {key:'D'}, 'D'), 
 // ]
 // const next = [
 //     h('div', {key:'B'}, 'B'), 
 //     h('div', {key:'C'}, 'C'), 
 // ]
+/*
+中间部分对比
+a b (c d) f g
+a b (e c) f g
+d需要删除 c的props发生变化
+*/
+// const prev = [
+//     h('div', { key: 'A' }, 'A'),
+//     h('div', { key: 'B' }, 'B'),
+//     h('div', { key: 'C', id: 'c-prev' }, 'C'),
+//     h('div', { key: 'D' }, 'D'),
+//     h('div', { key: 'F' }, 'F'),
+//     h('div', { key: 'G' }, 'G'),
+// ]
+// const next = [
+//     h('div', { key: 'A' }, 'A'),
+//     h('div', { key: 'B' }, 'B'),
+//     h('div', { key: 'E' }, 'E'),
+//     h('div', { key: 'C', id: 'c-next' }, 'C'),
+//     h('div', { key: 'F' }, 'F'),
+//     h('div', { key: 'G' }, 'G'),
+// ]
+
+// test toBePatched优化点
+/*
+
+a b (c d e) f g
+a b (d c) f g
+
+*/
+const prev = [
+    h('div', { key: 'A' }, 'A'),
+    h('div', { key: 'B' }, 'B'),
+    h('div', { key: 'C', id: 'c-prev' }, 'C'),
+    h('div', { key: 'D' }, 'D'),
+    h('div', { key: 'E' }, 'E'),
+    h('div', { key: 'F' }, 'F'),
+    h('div', { key: 'G' }, 'G'),
+]
+const next = [
+    h('div', { key: 'A' }, 'A'),
+    h('div', { key: 'B' }, 'B'),
+    h('div', { key: 'D' }, 'D'),
+    h('div', { key: 'C', id: 'c-next' }, 'C'),
+    h('div', { key: 'F' }, 'F'),
+    h('div', { key: 'G' }, 'G'),
+]
 export default {
     name: 'ArrayToArray',
     setup() {
