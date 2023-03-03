@@ -4,6 +4,7 @@ export interface VNode {
     props: any
     children: VNode[] | string
     shapeFlag: number
+    key: number
     el: HTMLElement | null
 }
 export const Fragment = Symbol("Fragment")
@@ -14,6 +15,7 @@ export function createVNode(type: any, props?: any, children?: any): VNode {
     const vnode = {
         type,
         props,
+        key: props && props.key,
         children,
         shapeFlag: getShapeFlag(type),
         el: null
