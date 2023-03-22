@@ -7,7 +7,7 @@
   "type": "module",
   "scripts": {
     "test": "jest",
-    "build": "rollup -c"
+    "build": "rollup -c -w"
   },
   "devDependencies": {
     "@babel/core": "^7.20.12",

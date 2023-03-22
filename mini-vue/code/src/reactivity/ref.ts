@@ -51,13 +51,17 @@ export function unRef(ref): any {
     return isRef(ref) ? ref.value : ref
 }
 
+/* 
+obj = { name: ref(4) }
+可以直接访问或者修改值为ref的对象
+*/
 export function proxyRefs(objectWithRefs:any): any {
     return new Proxy(objectWithRefs, {
         get(target, key) {
             return unRef(Reflect.get(target, key))
         },
         set(target, key, value) {
-            // value原来是ref，赋值为单值，则改变他的value
+            // value原来是ref，现在赋值为单值，则改变他的value
             if(isRef(target[key])  && !isRef(value)){
                 return target[key].value = value
             }else{

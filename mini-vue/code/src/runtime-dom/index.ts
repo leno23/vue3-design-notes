@@ -29,6 +29,8 @@ function remove(child) {
 function setElementText(el, text) {
     el.textContent = text
 }
+
+// 创建浏览器平台操作节点的API
 export const render: any = createRenderer({
     createElement,
     patchProp,

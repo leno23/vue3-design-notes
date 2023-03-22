@@ -139,6 +139,7 @@ a b (e c d) f g
 /*
 5.中间部分需要 创建
 
+
 a b (c e) f g
 a b (e c d) f g
 */
@@ -146,6 +147,7 @@ const prev = [
     h('div', { key: 'A' }, 'A'),
     h('div', { key: 'B' }, 'B'),
     h('div', { key: 'C', id: 'c-prev' }, 'C'),
+    h('div', { key: 'D' }, 'D'),
     h('div', { key: 'E' }, 'E'),
     h('div', { key: 'F' }, 'F'),
     h('div', { key: 'G' }, 'G'),
