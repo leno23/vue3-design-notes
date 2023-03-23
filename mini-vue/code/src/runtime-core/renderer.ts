@@ -241,6 +241,7 @@ export function createRenderer(options: any) {
                 }
 
             }
+            // 找到稳定的序列，对应的元素不需要移动，
             const increasingNewIndexSequence = moved ? getSequence(newIndexToOldIndexMap) : []
             // 从后往前对比，因为保证处理一个元素时，后面的元素已经处理好了，这样才可以拿到锚点anchor
             let j = increasingNewIndexSequence.length - 1
@@ -257,7 +258,7 @@ export function createRenderer(options: any) {
                         console.log('移动位置');
                         hostInsert(nextChild.el, container, anchor)
                     } else {
-                        j++
+                        j--
                     }
                 }
             }
