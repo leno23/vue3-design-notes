@@ -4,6 +4,7 @@ import { Fragment, Text, VNode } from './vnode';
 import { createAppAPI } from './createApp';
 import { effect } from '../reactivity/effect';
 import { EMPTY_OBJ, getSequence } from '../shared';
+import { shouldUpdateComponent } from './componentUpdateUtils';
 
 export function createRenderer(options: any) {
     const {
@@ -325,21 +326,40 @@ export function createRenderer(options: any) {
     }
     // 处理组件类型
     function processComponent(n1: VNode, n2: VNode, container: any, parentComponent: any, anchor: any) {
-        mountComponent(n1, n2, container, parentComponent, anchor)
+        if (!n1) {
+
+            mountComponent(n2, container, parentComponent, anchor)
+        } else {
+
+            updateComponent(n1, n2)
+        }
+    }
+    function updateComponent(n1, n2) {
+        const instance = (n2.component = n1.component)
+        if (shouldUpdateComponent(n1, n2)) {
+            console.log('updateComponent');
+            instance.next = n2
+            instance.update()
+        } else {
+            n2.el = n1.el
+            instance.vnode = n2
+        }
     }
 
+
     // 挂载组件
-    function mountComponent(n1: VNode, n2: VNode, container: any, parentComponent: any, anchor: any) {
-        const instance = createComponentInstance(n2, parentComponent,)
+    function mountComponent(initialVNode: VNode, container: any, parentComponent: any, anchor: any) {
+        const instance = createComponentInstance(initialVNode, parentComponent,)
+        initialVNode.component = instance
         setupComponent(instance)
 
-        setupRenderEffect(instance, n2, container, anchor)
+        setupRenderEffect(instance, initialVNode, container, anchor)
     }
     // 初始化 render函数的副作用 也就是状态改变 -> render() -> render Effect 的过程
     function setupRenderEffect(instance: any, initialVNode: VNode, container: any, anchor: any) {
         // vnode
         // 为render函数设置副作用，这样在render函数中的状态发生变化时，render调用时，然后这个副作用函数会被调用
-        effect(() => {
+        instance.update = effect(() => {
             const { proxy } = instance
             if (!instance.isMounted) {
                 console.log('init');
@@ -351,6 +371,12 @@ export function createRenderer(options: any) {
                 initialVNode.el = subTree.el
                 instance.isMounted = true
             } else {
+                const { next, vnode } = instance
+
+                if (next) {
+                    next.el = vnode.el
+                    updateComponentPreRender(instance, next)
+                }
                 const subTree = instance.render.call(proxy)
                 let preSubTree = instance.subTree
                 // 更新实例的子树
@@ -366,4 +392,10 @@ export function createRenderer(options: any) {
     return {
         createApp: createAppAPI(render)
     }
+}
+
+function updateComponentPreRender(instance, nextVNode) {
+    instance.vnode = nextVNode
+    nextVNode.next = null
+    instance.props = nextVNode.props
 }

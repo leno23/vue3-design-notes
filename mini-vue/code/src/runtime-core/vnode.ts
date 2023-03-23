@@ -3,6 +3,7 @@ export interface VNode {
     type: any
     props: any
     children: VNode[] | string
+    component: any,
     shapeFlag: number
     key: number
     el: HTMLElement | null
