@@ -18,14 +18,37 @@ function parseChildren(context) {
     if (s.startsWith('{{')) {
         node = parseInterpolation(context)
     } else if (s[0] === '<') {
+        // 以 <[a-z] 开头的字符命中element类型
         if (/[a-z]/i.test(s[1])) {
             node = parseElement(context)
         }
+    }
+    if (!node) {
+        node = parseText(context)
     }
     nodes.push(node)
     return nodes
 }
 
+// 解析文本数据
+function parseTextData(context: any, length: number) {
+    const content = context.source.slice(0, length)
+    advanceBy(context, length)
+    return content
+
+}
+
+// 解析文本
+function parseText(context: any) {
+    const content = parseTextData(context, context.source.length)
+
+    return {
+        type: NodeTypes.TEXT,
+        content
+    }
+}
+
+// 解析插值
 function parseInterpolation(context: any) {
     const openDelimiter: string = '{{'
     const closeDelimiter: string = '}}'
@@ -34,7 +57,7 @@ function parseInterpolation(context: any) {
     advanceBy(context, openDelimiter.length)
 
     const rawContentLength = closeIndex - openDelimiter.length
-    const rawContent = context.source.slice(0, rawContentLength)
+    const rawContent = parseTextData(context, rawContentLength)
     const content = rawContent.trim()
 
     advanceBy(context, rawContentLength + closeDelimiter.length)
