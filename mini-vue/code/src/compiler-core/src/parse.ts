@@ -4,34 +4,54 @@ const enum TagType {
     Start,
     End
 }
+const ancestors: any[] = []
 
-export function baseParse(content) {
+export function baseParse(content: string) {
     const context = createParserContext(content)
-    return createRoot(parseChildren(context))
+    return createRoot(parseChildren(context, []))
 }
 
 // 解析模板中的所有类型
-function parseChildren(context) {
+function parseChildren(context: any, ancestors: string) {
     const nodes = []
-    let node: any
+    while (!isEnd(context, ancestors)) {
+
+        let node: any
+        const s = context.source
+        if (s.startsWith('{{')) {
+            node = parseInterpolation(context)
+        } else if (s[0] === '<') {
+            // 以 <[a-z] 开头的字符命中element类型
+            if (/[a-z]/i.test(s[1])) {
+                node = parseElement(context)
+            }
+        }
+        if (!node) {
+            node = parseText(context)
+        }
+        nodes.push(node)
+    }
+    return nodes
+}
+
+function isEnd(context: any, ancestors: string) {
     const s = context.source
-    if (s.startsWith('{{')) {
-        node = parseInterpolation(context)
-    } else if (s[0] === '<') {
-        // 以 <[a-z] 开头的字符命中element类型
-        if (/[a-z]/i.test(s[1])) {
-            node = parseElement(context)
+    if (s.startsWith('</')) {
+        for (let i = 0; i < ancestors.length; i++) {
+            const tag = ancestors[i].tag
+            if (s.slice(2, 2 + tag.length) === tag) {
+                return true
+            }
         }
     }
-    if (!node) {
-        node = parseText(context)
-    }
-    nodes.push(node)
-    return nodes
+    // if (parentTag && s.startsWith(`</${parentTag}>`))
+    //     return 1
+    return !s
 }
 
 // 解析文本数据
 function parseTextData(context: any, length: number) {
+
     const content = context.source.slice(0, length)
     advanceBy(context, length)
     return content
@@ -40,7 +60,19 @@ function parseTextData(context: any, length: number) {
 
 // 解析文本
 function parseText(context: any) {
-    const content = parseTextData(context, context.source.length)
+    let endIndex = context.source.length
+    console.log(context.source);
+
+    const endToken = ['<', '{{']
+    for (let i = 0; i < endToken.length; i++) {
+
+        const index = context.source.indexOf(endToken[i])
+        if (index !== -1 && endIndex > index) {
+            endIndex = index
+        }
+    }
+    const content = parseTextData(context, endIndex)
+    // console.log('--------', content);
 
     return {
         type: NodeTypes.TEXT,
@@ -60,8 +92,7 @@ function parseInterpolation(context: any) {
     const rawContent = parseTextData(context, rawContentLength)
     const content = rawContent.trim()
 
-    advanceBy(context, rawContentLength + closeDelimiter.length)
-    console.log(context.source);
+    advanceBy(context, closeDelimiter.length)
 
     return {
         type: NodeTypes.INTERPOLATION,
@@ -72,15 +103,23 @@ function parseInterpolation(context: any) {
     }
 }
 
-function parseElement(context) {
-    const element = parseTag(context, TagType.Start)
-    parseTag(context, TagType.End)
+function parseElement(context: any) {
+    const element: any = parseTag(context, TagType.Start)
+    ancestors.push(element)
+    element.children = parseChildren(context, element.tag)
+    ancestors.pop()
+    if (context.source.slice(2, 2 + element.tag.length) === element.tag) {
+
+        parseTag(context, TagType.End)
+    } else {
+        throw new Error(`缺少结束标签:${element.tag}`)
+    }
     return element
 }
 
 function parseTag(context: any, type: TagType) {
     const match: any = /^<\/?([a-z]*)/i.exec(context.source)
-    console.log(match);
+
     const tag = match[1]
     advanceBy(context, match[0].length)
     advanceBy(context, 1)
@@ -95,14 +134,14 @@ function advanceBy(context: any, length: number) {
     context.source = context.source.slice(length)
 }
 
-function createRoot(children) {
+function createRoot(children: any) {
     return {
         children
     }
 }
 
 // 创建上下文
-function createParserContext(content) {
+function createParserContext(content: string) {
     return {
         source: content
     }
