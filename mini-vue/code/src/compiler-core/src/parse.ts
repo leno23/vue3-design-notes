@@ -32,10 +32,11 @@ function parseChildren(context: any, ancestors: any[]) {
     return nodes
 }
 
+// 是否以结束标签结尾，或者字符消费完了
 function isEnd(context: any, ancestors: any[]) {
     const s = context.source
     if (s.startsWith('</')) {
-        for (let i = 0; i < ancestors.length; i++) {
+        for (let i = ancestors.length - 1; i >= 0; i--) {
             const tag = ancestors[i].tag
 
             if (startsWithEndTagOpen(s, tag)) {

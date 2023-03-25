@@ -14,6 +14,28 @@ describe('Parse', () => {
                 }
             })
         })
+
+        test('it can have tag-like notation', () => {
+            const ast = baseParse('{{ a<b }}')
+            expect(ast.children[0]).toStrictEqual({
+                type: NodeTypes.INTERPOLATION,
+                content: {
+                    type: NodeTypes.SIMPLE_EXPRESSION,
+                    content: 'a<b'
+                }
+            })
+        })
+
+        test('it can have tag-like notation(2)', () => {
+            const ast = baseParse("{{ '</div>' }}")
+            expect(ast.children[0]).toStrictEqual({
+                type: NodeTypes.INTERPOLATION,
+                content: {
+                    type: NodeTypes.SIMPLE_EXPRESSION,
+                    content: "'</div>'"
+                }
+            })
+        })
     })
 
     describe('element', () => {
@@ -86,6 +108,12 @@ describe('Parse', () => {
         })
     })
 
+    
+    test('should throw error when lack end tag', () => {
+        expect(() => {
+            baseParse('<div><span>asdsa</div>')
+        }).toThrow('缺少结束标签:span') 
+    })
     
     test('should throw error when lack end tag', () => {
         expect(() => {
