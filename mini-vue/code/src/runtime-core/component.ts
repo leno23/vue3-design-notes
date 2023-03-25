@@ -13,9 +13,10 @@ export function createComponentInstance(vnode:VNode, parent) {
         setupState: {},
         props: {},
         parent,
+        next: null,
         providers: parent ? parent.providers : {},
         emit: () => { },
-        // 组件示例对应的
+        // 组件实例对应的vnode
         subTree: {},
         isMounted:false,
         slots: {}

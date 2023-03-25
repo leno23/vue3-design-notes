@@ -139,25 +139,42 @@ a b (e c d) f g
 /*
 5.中间部分需要 创建
 
-a b (c e) f g
+
+a b (c d e) f g
 a b (e c d) f g
 */
+// const prev = [
+//     h('div', { key: 'A' }, 'A'),
+//     h('div', { key: 'B' }, 'B'),
+//     h('div', { key: 'C' }, 'C'),
+//     h('div', { key: 'D' }, 'D'),
+//     h('div', { key: 'E' }, 'E'),
+//     h('div', { key: 'H' }, 'H'),
+//     h('div', { key: 'F' }, 'F'),
+//     h('div', { key: 'G' }, 'G'),
+// ]
+// const next = [
+//     h('div', { key: 'A' }, 'A'),
+//     h('div', { key: 'B' }, 'B'),
+//     h('div', { key: 'E' }, 'E'),
+//     h('div', { key: 'C', id: 'c-next' }, 'C'),
+//     h('div', { key: 'M' }, 'M'),
+//     h('div', { key: 'D' }, 'D'),
+//     h('div', { key: 'F' }, 'F'),
+//     h('div', { key: 'G' }, 'G'),
+// ]
+
 const prev = [
-    h('div', { key: 'A' }, 'A'),
-    h('div', { key: 'B' }, 'B'),
-    h('div', { key: 'C', id: 'c-prev' }, 'C'),
-    h('div', { key: 'E' }, 'E'),
-    h('div', { key: 'F' }, 'F'),
-    h('div', { key: 'G' }, 'G'),
+    h('div', {}, 'A'),
+    h('div', {}, 'B'),
+    h('div', {}, 'C'),
+    h('div', {}, 'D')
 ]
 const next = [
-    h('div', { key: 'A' }, 'A'),
-    h('div', { key: 'B' }, 'B'),
-    h('div', { key: 'E' }, 'E'),
-    h('div', { key: 'C', id: 'c-next' }, 'C'),
-    h('div', { key: 'D' }, 'D'),
-    h('div', { key: 'F' }, 'F'),
-    h('div', { key: 'G' }, 'G'),
+    h('div', {}, 'A'),
+    h('div', {}, 'C'),
+    h('div', {}, 'B'),
+    h('div', {}, 'D')
 ]
 
 export default {
