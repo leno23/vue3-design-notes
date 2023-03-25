@@ -4,15 +4,13 @@ const enum TagType {
     Start,
     End
 }
-const ancestors: any[] = []
-
 export function baseParse(content: string) {
     const context = createParserContext(content)
     return createRoot(parseChildren(context, []))
 }
 
-// 解析模板中的所有类型
-function parseChildren(context: any, ancestors: string) {
+// 解析模板中的所有类型的节点
+function parseChildren(context: any, ancestors: any[]) {
     const nodes = []
     while (!isEnd(context, ancestors)) {
 
@@ -23,7 +21,7 @@ function parseChildren(context: any, ancestors: string) {
         } else if (s[0] === '<') {
             // 以 <[a-z] 开头的字符命中element类型
             if (/[a-z]/i.test(s[1])) {
-                node = parseElement(context)
+                node = parseElement(context, ancestors)
             }
         }
         if (!node) {
@@ -34,12 +32,13 @@ function parseChildren(context: any, ancestors: string) {
     return nodes
 }
 
-function isEnd(context: any, ancestors: string) {
+function isEnd(context: any, ancestors: any[]) {
     const s = context.source
     if (s.startsWith('</')) {
         for (let i = 0; i < ancestors.length; i++) {
             const tag = ancestors[i].tag
-            if (s.slice(2, 2 + tag.length) === tag) {
+
+            if (startsWithEndTagOpen(s, tag)) {
                 return true
             }
         }
@@ -103,18 +102,21 @@ function parseInterpolation(context: any) {
     }
 }
 
-function parseElement(context: any) {
+function parseElement(context: any, ancestors: any[]) {
     const element: any = parseTag(context, TagType.Start)
     ancestors.push(element)
-    element.children = parseChildren(context, element.tag)
+    element.children = parseChildren(context, ancestors)
     ancestors.pop()
-    if (context.source.slice(2, 2 + element.tag.length) === element.tag) {
+    if (startsWithEndTagOpen(context.source, element.tag)) {
 
         parseTag(context, TagType.End)
     } else {
         throw new Error(`缺少结束标签:${element.tag}`)
     }
     return element
+}
+function startsWithEndTagOpen(context: any, tag: string) {
+    return context.source.slice(2, 2 + tag.length) === tag
 }
 
 function parseTag(context: any, type: TagType) {
