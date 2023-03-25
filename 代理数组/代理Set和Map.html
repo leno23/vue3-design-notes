@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document</title>
+</head>
+
+<body>
+  <script>
+    let data = { foo: 1, name: "tom" };
+    let INTERATE_KEY = Symbol();
+    const buckets = new WeakMap();
+    const track = (target, key) => {
+      if (!activeEffect || !shouldTrack) return;
+      let depsMap = buckets.get(target);
+      if (!depsMap) {
+        buckets.set(target, (depsMap = new Map()));
+      }
+      let deps = depsMap.get(key);
+      if (!deps) {
+        depsMap.set(key, (deps = new Set()));
+      }
+      deps.add(activeEffect);
+      activeEffect.deps.push(deps);
+    };
+    const TriggerType = {
+      SET: "SET",
+      ADD: "ADD",
+      DELETE: "DELETE",
+    };
+    const trigger = (target, key, type, newVal) => {
+      let depsMap = buckets.get(target);
+      if (!depsMap) return;
+      let effects = depsMap.get(key);
+      let effectsToRun = new Set();
+      effects &&
+        effects.forEach((effectFn) => {
+          if (activeEffect !== effectFn) {
+            effectsToRun.add(effectFn);
+          }
+        });
+      if (Array.isArray(target)) {
+        if (key === "length") {
+          depsMap.forEach((effects, key) => {
+            if (key < newVal) return;
+            for (let effectFn of effects) {
+              if (effect === activeEffect) continue;
+              effectsToRun.add(effectFn);
+            }
+          });
+        }
+        if (type === TriggerType.ADD) {
+          // 添加元素时，由于length会隐式变化，这里取出和length相关的副作用函数
+          const lengthEffects = depsMap.get("length");
+          lengthEffects &&
+            lengthEffects.forEach((effectFn) => {
+              if (activeEffect !== effectFn) {
+                effectsToRun.add(effectFn);
+              }
+            });
+        }
+      }
+      if (type === TriggerType.ADD || type === TriggerType.DELETE) {
+        const iterateEffects = depsMap.get(INTERATE_KEY);
+        iterateEffects &&
+          iterateEffects.forEach((effectFn) => {
+            if (activeEffect !== effectFn) {
+              effectsToRun.add(effectFn);
+            }
+          });
+      }
+      effectsToRun.forEach((effectFn) => {
+        if (effectFn.options.scheduler) {
+          effectFn.options.scheduler(effectFn);
+        } else {
+          effectFn();
+        }
+      });
+    };
+    const originalMethod = Array.prototype.includes;
+    const arrayInstrumentations = {
+      includes(...args) {
+        let res = originalMethod.apply(this, args);
+        if (res == false) {
+          res = originalMethod.apply(this.raw, args);
+        }
+        return res;
+      },
+    };
+    let shouldTrack = true;
+    ["push", "pop", "shift", "unshift", "splice"].forEach((method) => {
+      const originMethod = Array.prototype[method];
+      arrayInstrumentations[method] = function (...args) {
+        shouldTrack = false;
+        let res = originMethod.apply(this, args);
+        shouldTrack = true;
+        return res;
+      };
+    });
+    function createReactive(
+      data,
+      isShallow = false,
+      isReadonly = false
+    ) {
+      return new Proxy(data, {
+        deleteProperty(target, key) {
+          if (isReadonly) {
+            console.warn(`属性${key}是只读的`);
+            return true;
+          }
+          const hadKey = Object.prototype.hasOwnProperty.call(
+            target,
+            key
+          );
+          const res = Reflect.deleteProperty(target, key);
+          if (res && hadKey) {
+            trigger(target, key, "DELETE");
+          }
+          return res;
+        },
+        ownKeys(target) {
+          // 将副作用函数与ITERATE关联
+          track(
+            target,
+            Array.isArray(target) ? "length" : INTERATE_KEY
+          );
+          return Reflect.ownKeys(target);
+        },
+        // 拦截in 操作符
+        has(target, key) {
+          track(target, key);
+          return Reflect.set(target, key);
+        },
+        get(target, key, receiver) {
+          // 代理对象可以通过raw属性访问当原始对象
+          if (key === "raw") {
+            return target;
+          }
+          if (
+            Array.isArray(target) &&
+            arrayInstrumentations.hasOwnProperty(key)
+          ) {
+            return Reflect.get(
+              arrayInstrumentations,
+              key,
+              receiver
+            );
+          }
+          if (!isReadonly && typeof key != "symbol") {
+            track(target, key);
+          }
+          const res = Reflect.get(target, key, receiver);
+          if (isShallow) {
+            return res;
+          }
+          if (typeof res === "object" && res !== null) {
+            // 如何数据只读，则调用readonly 对值进行包装
+            return isReadonly ? readonly(res) : reactive(res);
+          }
+          return res;
+        },
+        set(target, key, newVal, receiver) {
+          if (isReadonly) {
+            console.warn(`[warn]:属性${key}是只读的`);
+            return true;
+          }
+          let oldVal = target[key];
+          const type = Array.isArray(target)
+            ? // 数组设置大于原数组length的索引，就视为添加操作
+            Number(key) < target.length
+              ? "SET"
+              : "ADD"
+            : Object.prototype.hasOwnProperty.call(target, key)
+              ? "SET"
+              : "ADD";
+          const res = Reflect.set(target, key, newVal, receiver);
+          // 修改前后值没有变化，不触发副作用函数执行
+          // 过滤掉一个值变化前后都是NaN的情况
+          if (target === receiver.raw) {
+            if (
+              oldVal != newVal &&
+              (oldVal === oldVal || newVal === newVal)
+            ) {
+              trigger(target, key, type, newVal);
+            }
+            return res;
+          }
+        },
+      });
+    }
+    const reactiveMap = new Map();
+    function reactive(obj) {
+      const existProxy = reactiveMap.get(obj);
+      if (existProxy) return existProxy;
+      const proxy = createReactive(obj);
+      reactiveMap.set(obj, proxy);
+      return proxy;
+    }
+    function shallowReactive(obj) {
+      return createReactive(obj, true);
+    }
+    function readonly(obj) {
+      return createReactive(obj, false, true);
+    }
+    function shallowReadonly(obj) {
+      return createReactive(obj, true, true);
+    }
+
+    let activeEffect,
+      effectStask = [];
+    const cleanup = (effectFn) => {
+      for (let effects of effectFn.deps) {
+        effects.delete(effectFn);
+      }
+      effectFn.deps.length = 0;
+    };
+
+    const effect = (fn, options = {}) => {
+      const effectFn = () => {
+        cleanup(effectFn);
+        activeEffect = effectFn;
+        effectStask.push(effectFn);
+        let res = fn();
+        effectStask.pop();
+        activeEffect = effectStask[effectStask.length - 1];
+        // 返回res，便于在computed函数拿到结果
+        return res;
+      };
+      effectFn.options = options;
+      effectFn.deps = [];
+      // 指定lazy为true时，不会立即执行副作用函数
+      if (!options.lazy) {
+        effectFn();
+      }
+      return effectFn;
+    };
+    // 代理Set和Map
+    
+
+  </script>
+</body>
+
+</html>  -
