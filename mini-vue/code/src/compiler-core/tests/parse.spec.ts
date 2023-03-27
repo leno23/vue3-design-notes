@@ -42,6 +42,7 @@ describe('Parse', () => {
         test('simple element div', () => {
             const ast = baseParse('<div></div>')
             expect(ast.children[0]).toStrictEqual({
+                children:[],
                 type: NodeTypes.ELEMENT,
                 tag: 'div'
             })
