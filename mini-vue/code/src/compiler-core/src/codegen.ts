@@ -1,0 +1,31 @@
+
+export function generate(ast) {
+    const context = createCodegenContext()
+    const {push} = context
+    push('return ')
+    const functionName = 'render'
+    const args = ['_ctx', '_cache']
+    const signature = args.join(', ')
+    push(`function ${functionName}(${signature}){`) 
+
+    push(`\nreturn `)
+    const node = ast.codegenNode
+    genNode(node, context)
+    push('\n}')
+
+    return context
+}
+
+function createCodegenContext () {
+    const context = {
+        code:'',
+        push(source){
+            context.code +=source
+        }
+    }
+    return context
+}
+function genNode(node, context) {
+    const {push} = context
+   push(`'${node.content}'`)
+}

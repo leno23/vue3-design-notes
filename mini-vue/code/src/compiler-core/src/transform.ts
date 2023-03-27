@@ -1,8 +1,14 @@
 import { NodeTypes } from './ast';
 
-export function transform(root, options) {
+export function transform(root, options={}) {
     const context = createTransformContext(root, options)
     traverseNode(root, context)
+
+    createRootCodegen(root)
+}
+
+function createRootCodegen (root) {
+    root.codegenNode = root.children[0]
 }
 function createTransformContext(root, options) {
     const context = {
