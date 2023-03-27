@@ -61,7 +61,7 @@ function parseTextData(context: any, length: number) {
 // 解析文本
 function parseText(context: any) {
     let endIndex = context.source.length
-    console.log(context.source);
+    // console.log(context.source);
 
     const endToken = ['<', '{{']
     for (let i = 0; i < endToken.length; i++) {
@@ -116,8 +116,8 @@ function parseElement(context: any, ancestors: any[]) {
     }
     return element
 }
-function startsWithEndTagOpen(context: any, tag: string) {
-    return context.source.slice(2, 2 + tag.length) === tag
+function startsWithEndTagOpen(source: any, tag: string) {
+    return source.slice(2, 2 + tag.length) === tag
 }
 
 function parseTag(context: any, type: TagType) {
