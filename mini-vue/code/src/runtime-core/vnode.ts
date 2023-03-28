@@ -18,6 +18,7 @@ export function createVNode(type: any, props?: any, children?: any): VNode {
         props,
         key: props && props.key,
         children,
+        component: null,
         shapeFlag: getShapeFlag(type),
         el: null
     }
@@ -34,7 +35,9 @@ export function createVNode(type: any, props?: any, children?: any): VNode {
     }
     return vnode
 }
-
+export {
+    createVNode as createElementVNode
+}
 export function createTextVNode(text) {
     return createVNode(Text, {}, text)
 

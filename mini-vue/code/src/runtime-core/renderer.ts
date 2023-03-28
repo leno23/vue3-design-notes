@@ -328,7 +328,6 @@ export function createRenderer(options: any) {
     // 处理组件类型
     function processComponent(n1: VNode, n2: VNode, container: any, parentComponent: any, anchor: any) {
         if (!n1) {
-
             mountComponent(n2, container, parentComponent, anchor)
         } else {
 
@@ -365,7 +364,7 @@ export function createRenderer(options: any) {
             if (!instance.isMounted) {
                 console.log('init');
 
-                const subTree = instance.render.call(proxy)
+                const subTree = instance.render.call(proxy, proxy)
                 instance.subTree = subTree
                 patch(null, subTree, container, instance, anchor)
                 // 深度优先遍历，此处会完成元素的挂载
@@ -378,7 +377,7 @@ export function createRenderer(options: any) {
                     next.el = vnode.el
                     updateComponentPreRender(instance, next)
                 }
-                const subTree = instance.render.call(proxy)
+                const subTree = instance.render.call(proxy, proxy)
                 let preSubTree = instance.subTree
                 // 更新实例的子树
                 instance.subTree = subTree
@@ -387,11 +386,11 @@ export function createRenderer(options: any) {
                 patch(preSubTree, subTree, container, instance, anchor)
 
             }
-        },{
-            scheduler(){
+        }, {
+            scheduler() {
                 // console.log('update - sheduler');
                 queueJobs(instance.update)
-                
+
             }
         })
     }
