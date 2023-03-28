@@ -1,12 +1,12 @@
 import { NodeTypes } from '../ast';
 
-export function transformExpression(node) {
+export function transformExpression(node:any) {
     if (node.type === NodeTypes.INTERPOLATION) {
-        node.content = processExpressions(node.content);
+        node.content = processExpression(node.content);
     }
 }
 
-function processExpressions(node) {
+function processExpression(node:any) {
     node.content = `_ctx.${ node.content }`
     return node
 }

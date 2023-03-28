@@ -6,7 +6,7 @@ describe('transform', () => {
 
     it('happy path', () => {
         const ast = baseParse('<div>hi,{{message}}</div>');
-        const plugin = node => {
+        const plugin = (node:any) => {
             if (node.type === NodeTypes.TEXT) {
                 node.content += ' mini-vue'
             }
