@@ -101,7 +101,7 @@ function genElement(node: any, context: any) {
     push(')')
 }
 
-function genNodeList(nodes, context) {
+function genNodeList(nodes: any, context: any) {
     const { push } = context
     for (let i = 0; i < nodes.length; i++) {
         const node = nodes[i]
@@ -114,7 +114,7 @@ function genNodeList(nodes, context) {
 
 // 把一些空值替换成null
 function genNullable(args: any) {
-    return args.map(arg => arg || 'null')
+    return args.map((arg: any) => arg || 'null')
 }
 
 // 复合类型表达式
